@@ -11,7 +11,8 @@ async function run() {
     const apiKey = process.env.GEMINI_API_KEY || ""; 
     const WP_URL = "tkg.com.np";
     const WP_USER = "trikal";
-    const WP_PASS = process.env.WP_PASS || "";
+    // पासवर्डबाट सबै खाली ठाउँहरू हटाउने (Important Fix)
+    const WP_PASS = (process.env.WP_PASS || "").replace(/\s+/g, '');
 
     if (!apiKey || !WP_PASS) {
         console.error("Error: API Key or WP Pass is missing in GitHub Secrets.");
@@ -67,6 +68,7 @@ async function run() {
             categories: [1]
         });
 
+        // अथेन्टिकेसन बनाउँदा पासवर्डको खाली ठाउँ हटाइएको पक्का गर्ने
         const auth = Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
         
         const options = {
@@ -78,7 +80,7 @@ async function run() {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'WordPress-Auto-Poster/1.0'
+                'User-Agent': 'WordPress-Auto-Poster/2.0'
             }
         };
 
@@ -91,6 +93,9 @@ async function run() {
                 } else {
                     console.error(`FAILED: WordPress rejected the request with Status ${res.statusCode}`);
                     console.error("Server Response:", resBody);
+                    if(res.statusCode === 401) {
+                        console.error("Error Tip: Check if WP_PASS in GitHub Secrets is correct.");
+                    }
                 }
             });
         });
