@@ -1,5 +1,5 @@
 /**
- * ⚡ FINAL PROMISE-BASED STABLE VERSION
+ * ⚡ FINAL PROMISE-BASED STABLE VERSION (NO EXTERNAL DEPENDENCIES)
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
  * २. एआई सामग्री नआउन्जेल पर्खने (Async/Await Fix)।
  * ३. वर्डप्रेस प्रमाणीकरणका लागि पूर्ण रूपमा सुरक्षित नेटिभ https मोड्युल।
@@ -7,7 +7,7 @@
 
 const https = require('https');
 
-// एआईबाट सामग्री ल्याउने फङ्सन
+// एआईबाट सामग्री ल्याउने फङ्सन (Native HTTPS प्रयोग गरेर)
 function fetchAIContent(apiKey, englishDateStr) {
     return new Promise((resolve, reject) => {
         const aiPayload = JSON.stringify({
@@ -19,7 +19,10 @@ function fetchAIContent(apiKey, englishDateStr) {
             hostname: 'generativelanguage.googleapis.com',
             path: `/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(aiPayload)
+            }
         };
 
         const req = https.request(options, (res) => {
@@ -30,12 +33,12 @@ function fetchAIContent(apiKey, englishDateStr) {
                     const parsed = JSON.parse(data);
                     const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (content) resolve(content);
-                    else reject(new Error("AI Content is empty"));
-                } catch (e) { reject(e); }
+                    else reject(new Error("AI Content is empty: " + data));
+                } catch (e) { reject(new Error("Parsing Error: " + e.message)); }
             });
         });
 
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error("Request Error: " + e.message)));
         req.write(aiPayload);
         req.end();
     });
@@ -74,7 +77,7 @@ function publishToWP(host, user, pass, dateStr, content) {
             });
         });
 
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error("WP Request Error: " + e.message)));
         req.write(postData);
         req.end();
     });
@@ -87,7 +90,7 @@ async function run() {
     const WP_PASS = (process.env.WP_PASS || "").replace(/\s+/g, '').trim();
 
     if (!apiKey || !WP_PASS) {
-        console.error("Critical Error: Missing Secrets.");
+        console.error("❌ Critical Error: Missing Secrets (GEMINI_API_KEY or WP_PASS).");
         return;
     }
 
@@ -96,8 +99,10 @@ async function run() {
         const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
         const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        console.log(`Step 1: Fetching AI Content...`);
+        console.log(`🚀 Step 1: Fetching AI Content for ${englishDateStr}...`);
         let rawContent = await fetchAIContent(apiKey, englishDateStr);
+        
+        // सरसफाई
         rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').trim();
 
         const finalHTML = `
@@ -109,7 +114,7 @@ async function run() {
             </div>
         `;
 
-        console.log(`Step 2: Publishing to ${WP_HOST}...`);
+        console.log(`📤 Step 2: Publishing to ${WP_HOST}...`);
         await publishToWP(WP_HOST, WP_USER, WP_PASS, englishDateStr, finalHTML);
         console.log(`✅ SUCCESS: Published Successfully!`);
 
