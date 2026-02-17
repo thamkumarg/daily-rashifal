@@ -1,7 +1,7 @@
 /**
- * FINAL STABLE VERSION - BUILT-IN HTTPS MODULE (FIXED)
+ * FINAL STABLE VERSION - FULL COMPATIBILITY FIX
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
- * २. वर्डप्रेस प्रमाणीकरणका लागि https मोड्युलको मानक प्रयोग।
+ * २. वर्डप्रेस प्रमाणीकरणका लागि सुधारिएको https मोड्युल।
  * ३. गिटहब एक्सन (Actions) को लागि पूर्ण रूपमा अनुकूलित।
  */
 
@@ -9,9 +9,9 @@ const https = require('https');
 
 async function run() {
     const apiKey = process.env.GEMINI_API_KEY || ""; 
-    const WP_URL = "tkg.com.np";
+    const WP_HOST = "tkg.com.np";
     const WP_USER = "trikal";
-    // पासवर्डबाट सबै खाली ठाउँहरू हटाउने (Important Fix)
+    // पासवर्डबाट सबै खाली ठाउँहरू हटाउने
     const WP_PASS = (process.env.WP_PASS || "").replace(/\s+/g, '');
 
     if (!apiKey || !WP_PASS) {
@@ -24,7 +24,7 @@ async function run() {
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // २. एआईका लागि निर्देशन
+    // २. एआईका लागि कडा निर्देशन
     const systemPrompt = `तपाईँ एक विशेषज्ञ ज्योतिष र नेपाली पात्रोको ज्ञाता हुनुहुन्छ। 
     आजको अंग्रेजी मिति ${englishDateStr} लाई सही नेपाली गतेमा बदल्नुहोस् र १२ राशिको फल <h3> र <p> ट्याग प्रयोग गरेर लेख्नुहोस्। 
     कुनै पनि भूमिका वा कोड ब्लक नलेख्नुहोस्। सिधै राशिफलबाट सुरु गर्नुहोस्।`;
@@ -45,7 +45,6 @@ async function run() {
         
         if (!rawContent || rawContent.length < 100) throw new Error("AI Content Generation Failed.");
 
-        // अनावश्यक क्यारेक्टर हटाउने
         rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').replace(/\*\*/g, '').trim();
 
         const finalHTML = `
@@ -59,7 +58,7 @@ async function run() {
             </div>
         `;
 
-        // ३. वर्डप्रेसमा पठाउने (https.request प्रयोग गरेर)
+        // ३. वर्डप्रेसमा पठाउने प्रक्रिया
         console.log("Step 2: Publishing to WordPress...");
         const postData = JSON.stringify({
             title: `आजको दैनिक राशिफल - ${englishDateStr}`,
@@ -68,11 +67,11 @@ async function run() {
             categories: [1]
         });
 
-        // अथेन्टिकेसन बनाउँदा पासवर्डको खाली ठाउँ हटाइएको पक्का गर्ने
         const auth = Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
         
+        // केही वर्डप्रेस साइटहरूमा /index.php/wp-json/ आवश्यक हुन सक्छ
         const options = {
-            hostname: WP_URL,
+            hostname: WP_HOST,
             port: 443,
             path: '/wp-json/wp/v2/posts',
             method: 'POST',
@@ -80,7 +79,8 @@ async function run() {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'WordPress-Auto-Poster/2.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Connection': 'keep-alive'
             }
         };
 
@@ -89,13 +89,10 @@ async function run() {
             res.on('data', (chunk) => { resBody += chunk; });
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
-                    console.log(`SUCCESS: Post Published Successfully! (Status: ${res.statusCode})`);
+                    console.log(`SUCCESS: Post Published! (Status: ${res.statusCode})`);
                 } else {
-                    console.error(`FAILED: WordPress rejected the request with Status ${res.statusCode}`);
-                    console.error("Server Response:", resBody);
-                    if(res.statusCode === 401) {
-                        console.error("Error Tip: Check if WP_PASS in GitHub Secrets is correct.");
-                    }
+                    console.error(`FAILED: WordPress Error Status ${res.statusCode}`);
+                    console.error("Response:", resBody);
                 }
             });
         });
@@ -112,5 +109,4 @@ async function run() {
     }
 }
 
-// Start execution
 run();
