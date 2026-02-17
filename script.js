@@ -1,5 +1,5 @@
 /**
- * FINAL STABLE VERSION - RE-FIXED
+ * FINAL STABLE VERSION - RE-FIXED & SANITIZED
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
  * २. वर्डप्रेस प्रमाणीकरण (Authentication) र कन्ट्यान्ट क्लिनिङमा सुधार।
  * ३. गिटहब एक्सन (Actions) को लागि पूर्ण रूपमा अनुकूलित।
@@ -21,13 +21,12 @@ async function run() {
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // २. एआईका लागि कडा निर्देशन
+    // २. एआईका लागि कडा निर्देशन (Strict Formatting)
     const systemPrompt = `तपाईँ एक विशेषज्ञ ज्योतिष र नेपाली पात्रोको ज्ञाता हुनुहुन्छ। 
     - तपाईँको मुख्य काम आजको अंग्रेजी मितिलाई सही नेपाली गते (B.S.) मा बदल्नु र राशिफल लेख्नु हो।
-    - उत्तरको सुरुमा आजको सही नेपाली मिति र अङ्ग्रेजी मिति लेख्नुहोस्।
+    - उत्तर सिधै राशिफलबाट सुरु गर्नुहोस्।
     - १२ वटै राशिको फल अनिवार्य रूपमा <h3> र <p> ट्यागमा लेख्नुहोस्।
-    - कुनै पनि भूमिका, गफ, वा 'यहाँ राशिफल छ' जस्ता वाक्य नलेख्नुहोस्।
-    - उत्तरलाई कुनै पनि कोड ब्लक (\`\`\`html) भित्र नराख्नुहोस्। सिधै मेषबाट सुरु गरेर मीनमा अन्त्य गर्नुहोस्।`;
+    - कुनै भूमिका, निष्कर्ष वा \`\`\`html जस्ता कोड ब्लकहरू नलेख्नुहोस्।`;
 
     const userQuery = `आज अङ्ग्रेजी मिति ${englishDateStr} हो। यसको सही नेपाली गते पत्ता लगाउनुहोस् र त्यस दिनको विस्तृत दैनिक राशिफल तयार पार्नुहोस्।`;
 
@@ -49,11 +48,12 @@ async function run() {
             throw new Error("AI returned insufficient or empty content.");
         }
 
-        // कन्टेन्ट सफा गर्ने (Unwanted characters filter)
+        // कन्टेन्ट सफा गर्ने (Sanitization Fix)
         rawContent = rawContent
             .replace(/```html/gi, '')
             .replace(/```/g, '')
             .replace(/\*\*/g, '')
+            .replace(/[\r\n]{2,}/g, '\n') // अनावश्यक खाली लाइन हटाउने
             .trim();
 
         // वर्डप्रेसको लागि अन्तिम डिजाइन
@@ -77,14 +77,15 @@ async function run() {
         `;
 
         console.log("Step 2: Sending post to WordPress...");
-        // Basic Auth Header
         const authHeader = 'Basic ' + Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
 
         const wpRes = await fetch(`${WP_URL}/wp-json/wp/v2/posts`, {
             method: 'POST',
             headers: {
                 'Authorization': authHeader,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Node.js Script)',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 title: `आजको राशिफल - ${englishDateStr}`,
@@ -98,8 +99,14 @@ async function run() {
             const resData = await wpRes.json();
             console.log(`SUCCESS: Post published! ID: ${resData.id}`);
         } else {
+            const errStatus = wpRes.status;
             const errText = await wpRes.text();
-            console.error(`WordPress API Error (${wpRes.status}): ${errText}`);
+            console.error(`WordPress API Error (${errStatus}): ${errText}`);
+            
+            // यदि ४०१ एरर आयो भने पासवर्ड वा युजरनेम मिलेन भन्ने बुझिन्छ
+            if(errStatus === 401) {
+                console.error("Auth Failed: Please check WP_PASS in GitHub Secrets.");
+            }
         }
 
     } catch (error) {
@@ -107,5 +114,4 @@ async function run() {
     }
 }
 
-// Run the automation
 run();
