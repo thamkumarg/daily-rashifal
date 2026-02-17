@@ -1,6 +1,7 @@
 /**
  * यो परिमार्जित script.js फाइल हो।
- * यसले सही नेपाली वि.सं. मिति २०८२ फागुन ५ र सही ज्योतिषिय इमेज (त्रिकाल ज्ञान मार्ग स्टाइल) सुनिश्चित गरेको छ।
+ * यसले 'Eid Mubarak' इमेजलाई हटाएर शुद्ध ज्योतिषिय राशि चक्रको इमेज राखेको छ।
+ * मिति: २०८२ फागुन ५ गते।
  */
 
 async function run() {
@@ -16,7 +17,7 @@ async function run() {
         process.exit(1);
     }
 
-    // १. मिति मिलान (Date Hardcoded to 2082 Falgun 5 as requested)
+    // १. मिति मिलान (वि.सं. २०८२ फागुन ५)
     const currentYearVS = 2082;
     const vsMonthName = "फागुन"; 
     const vsDay = 5; 
@@ -27,7 +28,7 @@ async function run() {
     console.log(`मिति सेट गरियो: ${adDateStr} = ${nepaliVSDatStr}`);
 
     const systemPrompt = `तपाईँ एक विशेषज्ञ वैदिक ज्योतिष हुनुहुन्छ। 
-    तपाईँले १२ राशिको राशिफल नेपाली भाषामा एकदमै आकर्षक र प्रस्ट ढाँचामा लेख्नुपर्छ। 
+    आजको १२ राशिको राशिफल नेपाली भाषामा एकदमै आकर्षक र प्रस्ट ढाँचामा लेख्नुपर्छ। 
     - प्रत्येक राशिको सुरुमा ठूलो ईमोजी र बोल्ड नाम राख्नुहोस् (उदा: ♈ **मेष राशि**)।
     - राशिफलको भाषा सकारात्मक र उत्साहजनक हुनुपर्छ।
     - अक्षरहरू पढ्न सजिलो हुने गरी अनुच्छेदहरू मिलाउनुहोस्।
@@ -51,19 +52,19 @@ async function run() {
 
         if (!rawContent) throw new Error("AI बाट सामग्री प्राप्त भएन।");
 
-        // २. प्रिमियम ज्योतिषिय डिजाइन (तपाईँले पठाउनुभएको फोटो जस्तै लुक्स)
+        // २. प्रिमियम ज्योतिषिय डिजाइन (नो इद मुबारक इमेज)
         const finalHTML = `
             <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border: 1px solid #eee; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1);">
                 <!-- Header -->
-                <div style="background: linear-gradient(135deg, #4a148c 0%, #1a237e 100%); padding: 40px 20px; text-align: center; color: white;">
+                <div style="background: linear-gradient(135deg, #1a237e 0%, #4a148c 100%); padding: 40px 20px; text-align: center; color: white;">
                     <h1 style="margin: 0; font-size: 34px; letter-spacing: 1px; border-bottom: 2px solid #ffd700; display: inline-block; padding-bottom: 5px;">आजको दैनिक राशिफल</h1>
                     <p style="margin: 15px 0 0; font-size: 24px; color: #ffd700; font-weight: bold;">${nepaliVSDatStr}</p>
                     <p style="margin: 5px 0 0; font-size: 16px; opacity: 0.8;">अङ्ग्रेजी मिति: ${adDateStr}</p>
                 </div>
                 
-                <!-- Corrected Featured Image: Premium Rashi Chakra (त्रिकाल ज्ञान मार्ग स्टाइल) -->
-                <div style="width: 100%; background-color: #000; text-align: center; padding: 10px 0;">
-                    <img src="https://tkg.com.np/wp-content/uploads/2025/02/rashi-chakra-premium.jpg" onerror="this.src='https://img.freepik.com/free-vector/zodiac-signs-wheel-astrology-background_1017-31362.jpg'" alt="Trikal Gyan Marga Rashifal" style="width: 100%; max-width: 700px; height: auto; display: block; margin: auto;">
+                <!-- शुद्ध ज्योतिषिय राशि चक्र इमेज -->
+                <div style="width: 100%; background-color: #000; text-align: center; padding: 15px 0;">
+                    <img src="https://img.freepik.com/free-vector/astrology-zodiac-signs-wheel-poster_1017-31363.jpg" alt="Trikal Gyan Marga Rashifal" style="width: 100%; max-width: 600px; height: auto; display: block; margin: auto; border-radius: 10px;">
                 </div>
 
                 <!-- Content Area -->
@@ -98,7 +99,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("सफलता! मिति २०८२ र प्रिमियम इमेज दुवै सुधारिएर पब्लिश भयो।");
+            console.log("सफलता! सबै सुधारहरूसहित राशिफल पब्लिश भयो।");
         } else {
             const errData = await wpRes.json();
             throw new Error(`WordPress Error: ${errData.message}`);
