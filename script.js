@@ -1,7 +1,7 @@
 /**
  * सुधारिएको script.js
- * १. दोहोरिएको मिति हटाइएको।
- * २. राशी चिह्न र नाम एउटै लाइनमा राखिएको।
+ * १. चिह्न, नाम र विवरणबीचको अनावश्यक ग्याप हटाइएको।
+ * २. क्लिन र कम्प्याक्ट डिजाइन।
  */
 
 async function run() {
@@ -18,9 +18,8 @@ async function run() {
     const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। १२ राशिको फल लेख्नुहोस्।
     - शीर्षक वा मिति फेरि नलेख्नुहोस्। 
     - प्रत्येक राशिको सुरुमा यसरी लेख्नुहोस्: **♈ मेष राशि:** (चिह्न र नाम एउटै लाइनमा)।
-    - विवरणपछि शुभ अंक र रङ समावेश गर्नुहोस्।
-    - अनावश्यक स्पेस र लाइनहरू नछोड्नुहोस्।
-    - सिधै राशीफलबाट सुरु गर्नुहोस्।`;
+    - राशिको नामपछि लगत्तै विवरण सुरु गर्नुहोस्, धेरै खाली ठाउँ नछोड्नुहोस्।
+    - विवरणको अन्त्यमा सानो अक्षरमा शुभ अंक र शुभ रङ लेख्नुहोस्।`;
 
     const userQuery = `${fullDateStr} को दैनिक राशिफल तयार पार्नुहोस्।`;
 
@@ -37,31 +36,31 @@ async function run() {
         const data = await response.json();
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-        // अनावश्यक खाली ठाउँहरू हटाउने
-        rawContent = rawContent.trim().replace(/\n{3,}/g, '\n\n');
+        // अनावश्यक लाइन ब्रेकहरू हटाउने
+        rawContent = rawContent.trim().replace(/\n{2,}/g, '\n');
 
-        // HTML संरचना - राशीको नाम र चिह्न एकै लाइनमा
+        // HTML संरचना - ग्याप घटाउने गरी बनाइएको
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #000; color: #eee; padding: 40px 20px; border: 1px solid #1a1a1a; line-height: 1.6;">
+            <div style="font-family: 'Mukta', sans-serif; max-width: 750px; margin: auto; background-color: #000; color: #eee; padding: 30px 15px; line-height: 1.5;">
                 
-                <!-- मुख्य हेडर -->
-                <div style="text-align: center; margin-bottom: 40px;">
-                    <h1 style="color: #d4af37; font-size: 38px; margin-bottom: 10px; text-decoration: underline;">
+                <!-- हेडर -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #d4af37; font-size: 34px; margin-bottom: 5px; border-bottom: 2px solid #d4af37; display: inline-block; padding-bottom: 5px;">
                         आजको राशिफल
                     </h1>
-                    <p style="font-size: 18px; color: #aaa; margin: 0;">${fullDateStr}</p>
-                    <div style="width: 50px; height: 2px; background: #d4af37; margin: 15px auto;"></div>
+                    <p style="font-size: 17px; color: #aaa; margin-top: 10px;">${fullDateStr}</p>
                 </div>
                 
                 <!-- राशिफल विवरण -->
-                <div style="font-size: 19px; text-align: justify;">
+                <div style="font-size: 18px;">
                     ${rawContent
-                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #d4af37; font-size: 21px; display: block; margin-top: 25px; margin-bottom: 8px; border-bottom: 1px dashed #333; padding-bottom: 5px;">$1</strong>')
-                        .replace(/\n/g, '<br>')}
+                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #d4af37; font-size: 20px; display: block; margin-top: 20px; margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 3px;">$1</strong>')
+                        .replace(/\n/g, '<div style="margin-bottom: 8px; text-align: justify;">')
+                        .split('</div>').map(line => line.includes('<strong') ? line : line + '</div>').join('')}
                 </div>
 
                 <!-- फुटर -->
-                <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #222; text-align: center; color: #555; font-size: 15px;">
+                <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #333; text-align: center; color: #666; font-size: 14px;">
                     © त्रिकाल ज्ञान मार्ग | वैदिक ज्योतिष सेवा
                 </div>
             </div>
@@ -81,8 +80,8 @@ async function run() {
             })
         });
 
-        if (wpRes.ok) console.log("Post published successfully!");
-        else console.log("Post failed:", await wpRes.text());
+        if (wpRes.ok) console.log("Published successfully!");
+        else console.log("Failed:", await wpRes.text());
 
     } catch (error) {
         console.error("Error:", error);
