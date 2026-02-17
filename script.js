@@ -1,13 +1,14 @@
 /**
- * ⚡ FINAL PROMISE-BASED STABLE VERSION (NO EXTERNAL DEPENDENCIES)
+ * ⚡ ULTIMATE STABLE VERSION (NO EXTERNAL DEPENDENCIES)
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
  * २. एआई सामग्री नआउन्जेल पर्खने (Async/Await Fix)।
  * ३. वर्डप्रेस प्रमाणीकरणका लागि पूर्ण रूपमा सुरक्षित नेटिभ https मोड्युल।
+ * ४. बिस्तृत इरर लगिङ (Debug-Ready)।
  */
 
 const https = require('https');
 
-// एआईबाट सामग्री ल्याउने फङ्सन (Native HTTPS प्रयोग गरेर)
+// एआईबाट सामग्री ल्याउने फङ्सन
 function fetchAIContent(apiKey, englishDateStr) {
     return new Promise((resolve, reject) => {
         const aiPayload = JSON.stringify({
@@ -29,16 +30,19 @@ function fetchAIContent(apiKey, englishDateStr) {
             let data = '';
             res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
+                if (res.statusCode !== 200) {
+                    return reject(new Error(`Gemini API Error: Status ${res.statusCode} - ${data}`));
+                }
                 try {
                     const parsed = JSON.parse(data);
                     const content = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (content) resolve(content);
-                    else reject(new Error("AI Content is empty: " + data));
-                } catch (e) { reject(new Error("Parsing Error: " + e.message)); }
+                    else reject(new Error("AI Content structure is invalid or empty."));
+                } catch (e) { reject(new Error("Gemini JSON Parsing Error: " + e.message)); }
             });
         });
 
-        req.on('error', (e) => reject(new Error("Request Error: " + e.message)));
+        req.on('error', (e) => reject(new Error("AI Request Failed: " + e.message)));
         req.write(aiPayload);
         req.end();
     });
@@ -64,7 +68,7 @@ function publishToWP(host, user, pass, dateStr, content) {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'WordPress/6.0; NodeJS'
+                'User-Agent': 'Mozilla/5.0 (WordPress Automation)'
             }
         };
 
@@ -72,12 +76,15 @@ function publishToWP(host, user, pass, dateStr, content) {
             let resBody = '';
             res.on('data', (d) => { resBody += d; });
             res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) resolve(resBody);
-                else reject(new Error(`WP Status ${res.statusCode}: ${resBody}`));
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(resBody);
+                } else {
+                    reject(new Error(`WP Error: Status ${res.statusCode}. Server said: ${resBody}`));
+                }
             });
         });
 
-        req.on('error', (e) => reject(new Error("WP Request Error: " + e.message)));
+        req.on('error', (e) => reject(new Error("WP Network Error: " + e.message)));
         req.write(postData);
         req.end();
     });
@@ -87,10 +94,15 @@ async function run() {
     const apiKey = process.env.GEMINI_API_KEY || ""; 
     const WP_HOST = "tkg.com.np";
     const WP_USER = "trikal";
-    const WP_PASS = (process.env.WP_PASS || "").replace(/\s+/g, '').trim();
+    // पासवर्डबाट सबै किसिमका स्पेस वा नदेखिने क्यारेक्टरहरू हटाउने
+    const WP_PASS = (process.env.WP_PASS || "").trim().replace(/\s/g, '');
 
-    if (!apiKey || !WP_PASS) {
-        console.error("❌ Critical Error: Missing Secrets (GEMINI_API_KEY or WP_PASS).");
+    if (!apiKey) {
+        console.error("❌ Error: GEMINI_API_KEY is missing.");
+        return;
+    }
+    if (!WP_PASS) {
+        console.error("❌ Error: WP_PASS is missing.");
         return;
     }
 
@@ -99,27 +111,35 @@ async function run() {
         const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
         const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        console.log(`🚀 Step 1: Fetching AI Content for ${englishDateStr}...`);
+        console.log(`🚀 Starting Automation for ${englishDateStr}...`);
+        
+        console.log(`📡 Step 1: Requesting Gemini AI...`);
         let rawContent = await fetchAIContent(apiKey, englishDateStr);
         
-        // सरसफाई
+        // सरसफाई (Cleaning Markdown tags if any)
         rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').trim();
 
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; background: #000; color: #eee; padding: 25px; border: 1px solid #d4af37; border-radius: 12px;">
-                <h1 style="color: #d4af37; text-align: center;">आजको दैनिक राशिफल</h1>
-                <p style="text-align: center; color: #888;">मिति: ${englishDateStr}</p>
+            <div style="font-family: 'Mukta', sans-serif; background: #000; color: #eee; padding: 25px; border: 1px solid #d4af37; border-radius: 12px; line-height: 1.6;">
+                <h1 style="color: #d4af37; text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 10px;">आजको दैनिक राशिफल</h1>
+                <p style="text-align: center; color: #888; font-size: 14px;">मिति: ${englishDateStr}</p>
                 <div style="margin-top: 20px;">${rawContent}</div>
-                <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #555;">© त्रिकाल ज्ञान मार्ग</div>
+                <div style="text-align: center; margin-top: 30px; border-top: 1px solid #333; padding-top: 15px; font-size: 12px; color: #666;">
+                    © त्रिकाल ज्ञान मार्ग | tkg.com.np
+                </div>
             </div>
         `;
 
-        console.log(`📤 Step 2: Publishing to ${WP_HOST}...`);
-        await publishToWP(WP_HOST, WP_USER, WP_PASS, englishDateStr, finalHTML);
-        console.log(`✅ SUCCESS: Published Successfully!`);
+        console.log(`📤 Step 2: Content generated. Sending to WordPress...`);
+        const result = await publishToWP(WP_HOST, WP_USER, WP_PASS, englishDateStr, finalHTML);
+        
+        const responseJson = JSON.parse(result);
+        console.log(`✅ SUCCESS! Post Published. ID: ${responseJson.id}`);
 
     } catch (error) {
-        console.error("❌ CRITICAL ERROR:", error.message);
+        console.error(`❌ CRITICAL FAILURE: ${error.message}`);
+        // गिटहब एक्सनलाई फेल भएको जानकारी दिन
+        process.exit(1);
     }
 }
 
