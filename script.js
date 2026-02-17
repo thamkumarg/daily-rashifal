@@ -1,7 +1,7 @@
 /**
- * ⚡ ULTIMATE STABLE VERSION - GUARANTEED RESULT
+ * ⚡ ULTIMATE STABLE VERSION - FULL NATIVE HTTPS FIX
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
- * २. वर्डप्रेस प्रमाणीकरणका लागि सबैभन्दा भरपर्दो https मोड्युल।
+ * २. वर्डप्रेस प्रमाणीकरणका लागि पूर्ण रूपमा नेटिभ https मोड्युल प्रयोग।
  * ३. गिटहब एक्सन (Actions) को लागि पूर्ण रूपमा अनुकूलित।
  */
 
@@ -11,7 +11,7 @@ async function run() {
     const apiKey = process.env.GEMINI_API_KEY || ""; 
     const WP_HOST = "tkg.com.np";
     const WP_USER = "trikal";
-    // पासवर्डबाट सबै खाली ठाउँहरू हटाउने र ट्रिम गर्ने
+    // पासवर्डबाट खाली ठाउँ हटाउने
     const WP_PASS = (process.env.WP_PASS || "").replace(/\s+/g, '').trim();
 
     if (!apiKey || !WP_PASS) {
@@ -19,85 +19,96 @@ async function run() {
         return;
     }
 
-    // १. आजको मिति (नेपाल समय)
+    // १. आजको मिति (नेपाल समय: UTC + 5:45)
     const today = new Date();
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // २. एआईबाट सामग्री लिने
-    const systemPrompt = `तपाईँ एक विशेषज्ञ ज्योतिष हुनुहुन्छ। मिति ${englishDateStr} को लागि सही नेपाली गते सहित १२ राशिको फल <h3> र <p> ट्याग प्रयोग गरेर लेख्नुहोस्। भूमिका नलेख्नुहोस्।`;
+    // २. एआईबाट सामग्री लिने (Native HTTPS प्रयोग गरेर)
+    console.log(`Step 1: Fetching AI Content for ${englishDateStr}...`);
+    
+    const aiPayload = JSON.stringify({
+        contents: [{ parts: [{ text: `आजको मिति ${englishDateStr} हो। यसको नेपाली गते पत्ता लगाई १२ राशिको विस्तृत फल लेख्नुहोस्।` }] }],
+        systemInstruction: { parts: [{ text: `तपाईँ विशेषज्ञ ज्योतिष हुनुहुन्छ। राशिफल <h3> र <p> ट्यागमा लेख्नुहोस्। भूमिका नलेख्नुहोस्।` }] }
+    });
 
-    try {
-        console.log(`Step 1: Fetching AI Content...`);
-        const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: `आजको मिति ${englishDateStr} को लागि विस्तृत नेपाली राशिफल दिनुहोस्।` }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] }
-            })
-        });
+    const aiOptions = {
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    };
 
-        const data = await aiResponse.json();
-        let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        
-        if (!rawContent || rawContent.length < 100) throw new Error("AI Content is empty.");
+    let aiRawData = '';
+    const aiReq = https.request(aiOptions, (res) => {
+        res.on('data', (d) => { aiRawData += d; });
+        res.on('end', async () => {
+            try {
+                const data = JSON.parse(aiRawData);
+                let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                if (!rawContent || rawContent.length < 100) throw new Error("AI Content is empty.");
 
-        rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').trim();
+                rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').trim();
 
-        const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; background: #000; color: #eee; padding: 25px; border: 1px solid #d4af37; border-radius: 12px;">
-                <h1 style="color: #d4af37; text-align: center;">आजको दैनिक राशिफल</h1>
-                <p style="text-align: center; color: #888;">मिति: ${englishDateStr}</p>
-                <div style="margin-top: 20px;">${rawContent}</div>
-            </div>
-        `;
+                const finalHTML = `
+                    <div style="font-family: 'Mukta', sans-serif; background: #000; color: #eee; padding: 25px; border: 1px solid #d4af37; border-radius: 12px;">
+                        <h1 style="color: #d4af37; text-align: center;">आजको दैनिक राशिफल</h1>
+                        <p style="text-align: center; color: #888;">मिति: ${englishDateStr}</p>
+                        <div style="margin-top: 20px;">${rawContent}</div>
+                        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #555;">© त्रिकाल ज्ञान मार्ग</div>
+                    </div>
+                `;
 
-        // ३. वर्डप्रेस पब्लिशिङ (Final Fix)
-        const postData = JSON.stringify({
-            title: `आजको दैनिक राशिफल - ${englishDateStr}`,
-            content: finalHTML,
-            status: 'publish',
-            categories: [1]
-        });
-
-        const auth = Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
-        
-        console.log(`Step 2: Publishing to ${WP_HOST}...`);
-
-        const options = {
-            hostname: WP_HOST,
-            port: 443,
-            path: '/wp-json/wp/v2/posts',
-            method: 'POST',
-            headers: {
-                'Authorization': `Basic ${auth}`,
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'WordPress/6.0; NodeJS'
+                // ३. वर्डप्रेसमा पठाउने
+                publishToWP(WP_HOST, WP_USER, WP_PASS, englishDateStr, finalHTML);
+            } catch (e) {
+                console.error("AI Parsing Error:", e.message);
             }
-        };
-
-        const req = https.request(options, (res) => {
-            let resBody = '';
-            res.on('data', (chunk) => { resBody += chunk; });
-            res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    console.log(`✅ SUCCESS: Post Published! Status: ${res.statusCode}`);
-                } else {
-                    console.error(`❌ FAILED: Status ${res.statusCode}`);
-                    console.error("Response:", resBody);
-                }
-            });
         });
+    });
+    aiReq.on('error', (e) => console.error("AI Request Error:", e));
+    aiReq.write(aiPayload);
+    aiReq.end();
+}
 
-        req.on('error', (e) => { console.error(`Network Error: ${e.message}`); });
-        req.write(postData);
-        req.end();
+function publishToWP(host, user, pass, dateStr, content) {
+    const postData = JSON.stringify({
+        title: `आजको दैनिक राशिफल - ${dateStr}`,
+        content: content,
+        status: 'publish',
+        categories: [1]
+    });
 
-    } catch (error) {
-        console.error("Critical Execution Error:", error.message);
-    }
+    const auth = Buffer.from(`${user}:${pass}`).toString('base64');
+    const options = {
+        hostname: host,
+        port: 443,
+        path: '/wp-json/wp/v2/posts',
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+            'User-Agent': 'WordPress/6.0; NodeJS'
+        }
+    };
+
+    console.log(`Step 2: Publishing to ${host}...`);
+    const req = https.request(options, (res) => {
+        let body = '';
+        res.on('data', (d) => { body += d; });
+        res.on('end', () => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                console.log(`✅ SUCCESS: Published! Status: ${res.statusCode}`);
+            } else {
+                console.error(`❌ FAILED: Status ${res.statusCode}`);
+                console.error("Server Response:", body);
+            }
+        });
+    });
+    req.on('error', (e) => console.error("WP Request Error:", e));
+    req.write(postData);
+    req.end();
 }
 
 run();
