@@ -1,38 +1,38 @@
 /**
- * FINAL STABLE VERSION - RE-FIXED
- * १. वर्डप्रेस प्रमाणीकरण (Authentication) र कन्ट्यान्ट क्लिनिङमा सुधार।
- * २. गिटहब एक्सन (Actions) को लागि पूर्ण रूपमा अनुकूलित।
+ * FINAL STABLE VERSION - DYNAMIC DATE & NEPALI CALENDAR FIX
+ * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
+ * २. महिनाको दिन (२९-३२) तलमाथि भए पनि मिति नबिग्रिने।
+ * ३. वर्डप्रेसमा सिधै पब्लिश हुने गरी रि-फिक्स गरिएको।
  */
 
 async function run() {
-    // गिटहब सेक्रेट्सबाट डेटा तान्ने
     const apiKey = process.env.GEMINI_API_KEY || ""; 
     const WP_URL = "https://tkg.com.np";
     const WP_USER = "trikal";
     const WP_PASS = process.env.WP_PASS || "";
 
-    // यदि डेटा छैन भने रोकिने
     if (!apiKey || !WP_PASS) {
-        console.error("Error: GEMINI_API_KEY or WP_PASS is not defined in environment variables.");
+        console.error("Error: API Key or WP Pass is missing in GitHub Secrets.");
         return;
     }
 
-    const vsDate = "५ फागुन २०८२";
-    const adDate = "फेब्रुअरी १७, २०२६";
-    const fullDateStr = `आज मिति ${vsDate} तदनुसार ${adDate}`;
+    // १. आजको अङ्ग्रेजी मिति लिने (नेपाली समय अनुसार)
+    const today = new Date();
+    const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
+    const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    // एआईका लागि कडा निर्देशन
-    const systemPrompt = `तपाईँ एक विशेषज्ञ ज्योतिष हुनुहुन्छ। 
-    - १२ वटै राशिको फल अनिवार्य रूपमा लेख्नुहोस्।
-    - प्रत्येक राशिको नाम र चिन्हलाई <h3> ट्यागमा राख्नुहोस्।
-    - राशिफलको विवरणलाई <p> ट्यागमा राख्नुहोस्।
-    - कुनै पनि भूमिका, गफ, वा 'यहाँ राशिफल छ' जस्ता वाक्य नलेख्नुहोस्।
-    - उत्तरलाई कुनै पनि कोड ब्लक (\`\`\`html) भित्र नराख्नुहोस्। सिधै मेषबाट सुरु गरेर मीनमा अन्त्य गर्नुहोस्।`;
+    // २. एआईलाई सही नेपाली मिति र राशिफल सोध्ने
+    const systemPrompt = `तपाईँ एक विशेषज्ञ ज्योतिष र नेपाली पात्रोको ज्ञाता हुनुहुन्छ।
+    - तपाईँको मुख्य काम आजको अंग्रेजी मितिलाई सही नेपाली गते (B.S.) मा बदल्नु र राशिफल लेख्नु हो।
+    - उत्तरमा सबैभन्दा माथि आजको नेपाली मिति (उदा: ५ फागुन २०८२) र अंग्रेजी मिति लेख्नुहोस्।
+    - १२ वटै राशिको फल अनिवार्य रूपमा <h3> र <p> ट्यागमा लेख्नुहोस्।
+    - कुनै भूमिका नलेख्नुहोस्। सिधै मिति र राशिफलबाट सुरु गर्नुहोस्।
+    - उत्तरलाई कुनै पनि कोड ब्लक (\`\`\`html) भित्र नराख्नुहोस्।`;
 
-    const userQuery = `${fullDateStr} को लागि १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्।`;
+    const userQuery = `आज अङ्ग्रेजी मिति ${englishDateStr} हो। यसको सही नेपाली गते पत्ता लगाउनुहोस् र त्यस दिनको विस्तृत दैनिक राशिफल तयार पार्नुहोस्।`;
 
     try {
-        console.log("Connecting to Gemini AI...");
+        console.log(`Step 1: Fetching content for ${englishDateStr} from Gemini...`);
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -46,22 +46,17 @@ async function run() {
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
         if (!rawContent || rawContent.length < 100) {
-            throw new Error("AI returned insufficient or empty content.");
+            throw new Error("AI returned invalid content.");
         }
 
-        // कन्टेन्ट सफा गर्ने (Unwanted characters filter)
-        rawContent = rawContent
-            .replace(/```html/gi, '')
-            .replace(/```/g, '')
-            .replace(/\*\*/g, '')
-            .trim();
+        // फालतू कोड ब्लकहरू हटाउने
+        rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').replace(/\*\*/g, '').trim();
 
-        // वर्डप्रेसको लागि अन्तिम डिजाइन
         const finalHTML = `
             <div style="font-family: 'Mukta', sans-serif; max-width: 750px; margin: 0 auto; background-color: #000; color: #eee; padding: 25px; border: 1px solid #d4af37; border-radius: 10px;">
                 <div style="text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 15px; margin-bottom: 25px;">
                     <h1 style="color: #d4af37; margin: 0; font-size: 28px;">आजको राशिफल</h1>
-                    <p style="color: #aaa; font-size: 16px;">${fullDateStr}</p>
+                    <p style="color: #888; font-size: 16px;">अटो-अपडेटेड: ${englishDateStr}</p>
                 </div>
                 <style>
                     .rashifal-body h3 { color: #d4af37 !important; border-left: 4px solid #d4af37; padding-left: 10px; margin-top: 25px !important; font-size: 22px !important; display: block; }
@@ -76,10 +71,9 @@ async function run() {
             </div>
         `;
 
-        console.log("Sending post to WordPress...");
-        // Basic Auth Credentials
+        console.log("Step 2: Publishing to WordPress...");
         const authHeader = 'Basic ' + Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
-
+        
         const wpRes = await fetch(`${WP_URL}/wp-json/wp/v2/posts`, {
             method: 'POST',
             headers: {
@@ -87,7 +81,7 @@ async function run() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                title: `तपाईँको आज- ${vsDate}`,
+                title: `आजको राशिफल - ${englishDateStr}`,
                 content: finalHTML,
                 status: 'publish',
                 categories: [1]
@@ -96,16 +90,15 @@ async function run() {
 
         if (wpRes.ok) {
             const resData = await wpRes.json();
-            console.log(`SUCCESS: Post published! ID: ${resData.id}`);
+            console.log(`SUCCESS: Post published! Post ID: ${resData.id}`);
         } else {
             const errText = await wpRes.text();
-            console.error(`WordPress API Error (${wpRes.status}): ${errText}`);
+            console.error(`WP Error (${wpRes.status}): ${errText}`);
         }
 
     } catch (error) {
-        console.error("Critical Error during execution:", error.message);
+        console.error("Critical Error:", error.message);
     }
 }
 
-// Run the automation
 run();
