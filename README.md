@@ -1,0 +1,2 @@
+# daily-rashifal
+Dainik Rashifal
