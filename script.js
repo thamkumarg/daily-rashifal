@@ -1,6 +1,7 @@
 /**
  * सुधारिएको script.js
- * राशीहरूबीचको अनावश्यक स्पेस हटाइएको र फन्ट साइज समान बनाइएको छ।
+ * १. दोहोरिएको मिति हटाइएको।
+ * २. राशी चिह्न र नाम एउटै लाइनमा राखिएको।
  */
 
 async function run() {
@@ -9,18 +10,19 @@ async function run() {
     const WP_USER = "trikal";
     const WP_PASS = process.env.WP_PASS;
 
-    // मिति र समय सेटिङ
+    // मिति सेटिङ
     const vsDate = "५ फागुन २०८२";
     const adDate = "फेब्रुअरी १७, २०२६";
     const fullDateStr = `आज मिति ${vsDate} तदनुसार ${adDate}`;
 
-    const systemPrompt = `तपाईँ वैदिक ज्योतिष हुनुहुन्छ। १२ राशिको फल लेख्नुहोस्।
-    - प्रत्येक राशिको नाम यसरी लेख्नुहोस्: ♈ **मेष राशि**
-    - विवरणपछि शुभ अंक र रङ लेख्नुहोस्।
-    - राशीहरू बीच धेरै खाली लाइन नछोड्नुहोस्।
-    - सिधै मुख्य सामग्री मात्र दिनुहोस्।`;
+    const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। १२ राशिको फल लेख्नुहोस्।
+    - शीर्षक वा मिति फेरि नलेख्नुहोस्। 
+    - प्रत्येक राशिको सुरुमा यसरी लेख्नुहोस्: **♈ मेष राशि:** (चिह्न र नाम एउटै लाइनमा)।
+    - विवरणपछि शुभ अंक र रङ समावेश गर्नुहोस्।
+    - अनावश्यक स्पेस र लाइनहरू नछोड्नुहोस्।
+    - सिधै राशीफलबाट सुरु गर्नुहोस्।`;
 
-    const userQuery = `${fullDateStr} को राशिफल तयार पार्नुहोस्।`;
+    const userQuery = `${fullDateStr} को दैनिक राशिफल तयार पार्नुहोस्।`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
@@ -35,32 +37,32 @@ async function run() {
         const data = await response.json();
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-        // अनावश्यक स्पेस सफा गर्ने
+        // अनावश्यक खाली ठाउँहरू हटाउने
         rawContent = rawContent.trim().replace(/\n{3,}/g, '\n\n');
 
-        // HTML बनाउने - फन्ट र स्पेस मिलाइएको
+        // HTML संरचना - राशीको नाम र चिह्न एकै लाइनमा
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #000; color: #eee; padding: 40px 20px; border: 1px solid #1a1a1a;">
+            <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #000; color: #eee; padding: 40px 20px; border: 1px solid #1a1a1a; line-height: 1.6;">
                 
-                <!-- Header -->
+                <!-- मुख्य हेडर -->
                 <div style="text-align: center; margin-bottom: 40px;">
-                    <h1 style="color: #d4af37; font-size: 42px; margin-bottom: 10px; line-height: 1.2;">
+                    <h1 style="color: #d4af37; font-size: 38px; margin-bottom: 10px; text-decoration: underline;">
                         आजको राशिफल
                     </h1>
-                    <p style="font-size: 20px; color: #888; margin: 0;">${fullDateStr}</p>
-                    <div style="width: 60px; height: 2px; background: #d4af37; margin: 20px auto;"></div>
+                    <p style="font-size: 18px; color: #aaa; margin: 0;">${fullDateStr}</p>
+                    <div style="width: 50px; height: 2px; background: #d4af37; margin: 15px auto;"></div>
                 </div>
                 
-                <!-- Horoscope Content -->
-                <div style="font-size: 20px; line-height: 1.6; text-align: justify;">
+                <!-- राशिफल विवरण -->
+                <div style="font-size: 19px; text-align: justify;">
                     ${rawContent
-                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #d4af37; font-size: 22px; display: block; margin-top: 25px; margin-bottom: 10px;">$1</strong>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #d4af37; font-size: 21px; display: block; margin-top: 25px; margin-bottom: 8px; border-bottom: 1px dashed #333; padding-bottom: 5px;">$1</strong>')
                         .replace(/\n/g, '<br>')}
                 </div>
 
-                <!-- Footer -->
-                <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #222; text-align: center; color: #666; font-size: 16px;">
-                    BY त्रिकाल ज्ञान मार्ग | TKG TODAY
+                <!-- फुटर -->
+                <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #222; text-align: center; color: #555; font-size: 15px;">
+                    © त्रिकाल ज्ञान मार्ग | वैदिक ज्योतिष सेवा
                 </div>
             </div>
         `;
