@@ -1,6 +1,6 @@
 /**
  * यो परिमार्जित script.js फाइल हो।
- * यसले सही नेपाली वि.सं. मिति २०८२ फागुन ५ र सही ज्योतिषिय इमेज सुनिश्चित गरेको छ।
+ * यसले सही नेपाली वि.सं. मिति २०८२ फागुन ५ र सही ज्योतिषिय इमेज (त्रिकाल ज्ञान मार्ग स्टाइल) सुनिश्चित गरेको छ।
  */
 
 async function run() {
@@ -16,18 +16,15 @@ async function run() {
         process.exit(1);
     }
 
-    // १. मिति मिलान (Date Corrected to 2082)
-    const today = new Date();
-    const adDateStr = today.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
-    
-    // फेब्रुअरी १७, २०२६ = फागुन ५, २०८२
+    // १. मिति मिलान (Date Hardcoded to 2082 Falgun 5 as requested)
     const currentYearVS = 2082;
     const vsMonthName = "फागुन"; 
     const vsDay = 5; 
+    const adDateStr = "फेब्रुअरी १७, २०२६";
     
     const nepaliVSDatStr = `वि.सं. ${currentYearVS} ${vsMonthName} ${vsDay} गते`;
 
-    console.log(`मिति मिलान: ${adDateStr} = ${nepaliVSDatStr}`);
+    console.log(`मिति सेट गरियो: ${adDateStr} = ${nepaliVSDatStr}`);
 
     const systemPrompt = `तपाईँ एक विशेषज्ञ वैदिक ज्योतिष हुनुहुन्छ। 
     तपाईँले १२ राशिको राशिफल नेपाली भाषामा एकदमै आकर्षक र प्रस्ट ढाँचामा लेख्नुपर्छ। 
@@ -54,7 +51,7 @@ async function run() {
 
         if (!rawContent) throw new Error("AI बाट सामग्री प्राप्त भएन।");
 
-        // २. प्रिमियम ज्योतिषिय डिजाइन
+        // २. प्रिमियम ज्योतिषिय डिजाइन (तपाईँले पठाउनुभएको फोटो जस्तै लुक्स)
         const finalHTML = `
             <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border: 1px solid #eee; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1);">
                 <!-- Header -->
@@ -64,9 +61,9 @@ async function run() {
                     <p style="margin: 5px 0 0; font-size: 16px; opacity: 0.8;">अङ्ग्रेजी मिति: ${adDateStr}</p>
                 </div>
                 
-                <!-- Corrected Featured Image: Zodiac Wheel -->
-                <div style="width: 100%; background-color: #f5f5f5; text-align: center; padding: 20px 0;">
-                    <img src="https://img.freepik.com/free-vector/hand-drawn-zodiac-wheel-astrology-background_23-2148766128.jpg" alt="Nepali Rashi Chakra" style="width: 90%; max-width: 480px; height: auto; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); margin: auto; display: block;">
+                <!-- Corrected Featured Image: Premium Rashi Chakra (त्रिकाल ज्ञान मार्ग स्टाइल) -->
+                <div style="width: 100%; background-color: #000; text-align: center; padding: 10px 0;">
+                    <img src="https://tkg.com.np/wp-content/uploads/2025/02/rashi-chakra-premium.jpg" onerror="this.src='https://img.freepik.com/free-vector/zodiac-signs-wheel-astrology-background_1017-31362.jpg'" alt="Trikal Gyan Marga Rashifal" style="width: 100%; max-width: 700px; height: auto; display: block; margin: auto;">
                 </div>
 
                 <!-- Content Area -->
@@ -78,8 +75,8 @@ async function run() {
 
                 <!-- Footer -->
                 <div style="background-color: #f8f9fa; padding: 25px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0; font-weight: bold; color: #1a237e; font-size: 20px;">त्रिकाल ज्ञान मार्ग - tkg.com.np</p>
-                    <p style="margin: 5px 0 0; color: #666; font-size: 16px;">तपाईँको दिन मंगलमय रहोस्!</p>
+                    <p style="margin: 0; font-weight: bold; color: #1a237e; font-size: 22px;">त्रिकाल ज्ञान मार्ग वैदिक ज्योतिष</p>
+                    <p style="margin: 5px 0 0; color: #666; font-size: 16px;">तपाईँको दिन मंगलमय रहोस्! | tkg.com.np</p>
                 </div>
             </div>
         `;
@@ -101,7 +98,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("सफलता! मिति र इमेज दुवै सुधारिएर पब्लिश भयो।");
+            console.log("सफलता! मिति २०८२ र प्रिमियम इमेज दुवै सुधारिएर पब्लिश भयो।");
         } else {
             const errData = await wpRes.json();
             throw new Error(`WordPress Error: ${errData.message}`);
