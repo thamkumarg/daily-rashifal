@@ -1,8 +1,7 @@
 /**
- * सुधारिएको script.js
- * १. कन्ट्यान्ट नदेखिने समस्याको पूर्ण समाधान (Universal Regex Parsing)
- * २. राशीको नाम र विवरणलाई एकदमै टाइट बनाइएको।
- * ३. अलाइनमेन्ट र ग्यापलाई सुक्ष्म बनाइएको।
+ * सुधारिएको र सिधा काम गर्ने script.js
+ * १. जटिल पार्सिङ हटाएर सिधै 'Raw Content' लाई आकर्षक बनाइएको।
+ * २. पोस्ट खाली हुने समस्याको पूर्ण अन्त्य।
  */
 
 async function run() {
@@ -15,10 +14,12 @@ async function run() {
     const adDate = "फेब्रुअरी १७, २०२६";
     const fullDateStr = `आज मिति ${vsDate} तदनुसार ${adDate}`;
 
+    // एआईलाई सिधै HTML ढाँचामा उत्तर दिन निर्देशन
     const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। 
     - १२ वटै राशिको फल अनिवार्य रूपमा लेख्नुहोस्।
-    - राशिको नाम र चिन्ह यसरी सुरु गर्नुहोस्: ♈ मेष राशि:
-    - कुनै भूमिका वा उपसंहार नलेख्नुहोस्। सिधै मेषबाट सुरु गरेर मीनमा अन्त्य गर्नुहोस्।`;
+    - प्रत्येक राशिलाई <h3> र <p> ट्याग प्रयोग गरेर HTML ढाँचामा लेख्नुहोस्।
+    - शीर्षकमा राशिको नाम र चिन्ह (जस्तै ♈ मेष) राख्नुहोस्।
+    - कुनै भूमिका वा गफ नलेख्नुहोस्। सिधै मेषबाट सुरु गरेर मीनमा अन्त्य गर्नुहोस्।`;
 
     const userQuery = `${fullDateStr} को लागि १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्।`;
 
@@ -33,77 +34,32 @@ async function run() {
         });
 
         const data = await response.json();
-        let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const rawAIContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-        if (!rawContent || rawContent.length < 50) {
-            console.error("AI content empty or too short.");
+        if (!rawAIContent) {
+            console.error("AI returned nothing.");
             return;
         }
 
-        const rashiNames = ["मेष", "वृष", "मिथुन", "कर्कट", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुम्भ", "मीन"];
-        
-        /**
-         * मुख्य सुधार: यदि एआईले सबै फलहरू एउटै प्याराग्राफमा पठाए पनि 
-         * राशीको चिन्ह (♈-♓) भेट्ने बित्तिकै यसले नयाँ खण्ड बनाउँछ।
-         */
-        const segments = rawContent
-            .replace(/([♈-♓])/gu, '\n$1') // चिन्हको अगाडि लाइन ब्रेक थप्ने
-            .split('\n')
-            .filter(line => line.trim().length > 5);
-
-        const processedContent = segments.map(line => {
-            let cleanLine = line.replace(/\*\*/g, '').trim();
-            const isRashiLine = rashiNames.some(r => cleanLine.includes(r)) || line.match(/[♈-♓]/u);
-
-            if (isRashiLine) {
-                let title = "";
-                let description = "";
-
-                // टाइटल र विवरण छुट्याउने
-                if (cleanLine.includes(':')) {
-                    let parts = cleanLine.split(':');
-                    title = parts[0].trim();
-                    description = parts.slice(1).join(':').trim();
-                } else if (cleanLine.includes('-')) {
-                    let parts = cleanLine.split('-');
-                    title = parts[0].trim();
-                    description = parts.slice(1).join('-').trim();
-                } else {
-                    // यदि चिन्ह मात्र छ भने पहिलो २ शब्दलाई हेडलाइन मान्ने
-                    let words = cleanLine.split(' ');
-                    title = words.slice(0, 2).join(' ');
-                    description = words.slice(2).join(' ');
-                }
-
-                return `
-                    <div style="margin-top: 15px; border-bottom: 1px solid #111; padding-bottom: 8px;">
-                        <div style="color: #d4af37; font-size: 21px; font-weight: bold; margin-bottom: 2px; border-left: 4px solid #d4af37; padding-left: 10px; display: block;">
-                            ${title}
-                        </div>
-                        <p style="margin: 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px; line-height: 1.6;">
-                            ${description}
-                        </p>
-                    </div>`;
-            }
-            return `<p style="margin: 8px 0; text-align: justify; font-size: 17px; color: #bbb; line-height: 1.6;">${cleanLine}</p>`;
-        }).join('');
-
+        // एआईबाट आएको सामग्रीलाई कालो ब्याकग्राउन्ड र सुनौलो अक्षरमा ढाल्ने
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 700px; margin: -55px auto 0 auto; background-color: #000; color: #eee; padding-bottom: 30px;">
-                
-                <div style="text-align: center; padding: 25px 0 15px 0; border-bottom: 1px solid #333; margin-bottom: 15px;">
-                    <h2 style="color: #d4af37; font-size: 28px; margin: 0; padding: 0; text-transform: uppercase; font-weight: bold;">
-                        आजको राशिफल
-                    </h2>
-                    <p style="font-size: 15px; color: #888; margin: 5px 0 0 0;">${fullDateStr}</p>
+            <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: -50px auto 0 auto; background-color: #000; color: #eee; padding: 20px;">
+                <div style="text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 20px; margin-bottom: 20px;">
+                    <h1 style="color: #d4af37; font-size: 32px; margin: 0;">आजको राशिफल</h1>
+                    <p style="color: #888; font-size: 16px;">${fullDateStr}</p>
                 </div>
                 
-                <div style="padding: 0 15px;">
-                    ${processedContent}
+                <style>
+                    h3 { color: #d4af37 !important; border-left: 4px solid #d4af37; padding-left: 10px; margin-top: 25px !important; font-size: 22px !important; }
+                    p { font-size: 18px !important; line-height: 1.7 !important; text-align: justify; color: #ccc !important; }
+                </style>
+
+                <div class="rashifal-body">
+                    ${rawAIContent.replace(/\*\*/g, '')}
                 </div>
 
-                <div style="margin-top: 30px; padding: 15px; border-top: 1px solid #222; text-align: center; color: #444; font-size: 12px;">
-                    © त्रिकाल ज्ञान मार्ग | डिजिटल ज्योतिष डायरी
+                <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; color: #555;">
+                    © त्रिकाल ज्ञान मार्ग | तपाईँको आध्यात्मिक सहयात्री
                 </div>
             </div>
         `;
@@ -123,13 +79,13 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("Post published successfully!");
+            console.log("Success: Post published!");
         } else {
-            console.error("WP Error:", await wpRes.text());
+            console.error("WP Post Failed:", await wpRes.text());
         }
 
     } catch (error) {
-        console.error("Critical error in run():", error);
+        console.error("System Error:", error);
     }
 }
 
