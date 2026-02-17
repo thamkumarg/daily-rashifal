@@ -1,8 +1,8 @@
 /**
  * सुधारिएको script.js
- * १. कन्ट्यान्ट नदेखिने समस्या पूर्ण रूपमा समाधान (Flexible Parsing)
- * २. राशीको नाम र फललाई कोलन (:) नभए पनि चिन्न सक्ने बनाइएको।
- * ३. अलाइनमेन्ट र ग्यापलाई थप सुक्ष्म बनाइएको।
+ * १. कन्ट्यान्ट नदेखिने समस्या पूर्ण समाधान (Regex-based formatting)
+ * २. राशीको नाम र विवरणलाई एकदमै नजिक ल्याइएको।
+ * ३. अलाइनमेन्ट र ग्यापलाई सुक्ष्म बनाइएको।
  */
 
 async function run() {
@@ -17,11 +17,10 @@ async function run() {
 
     const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। 
     - प्रत्येक राशिको फल एक-एक अनुच्छेद (Paragraph) मा लेख्नुहोस्।
-    - राशिको नाम यसरी सुरु गर्नुहोस्: **♈ मेष राशि:** (चिह्न र नाम अनिवार्य)।
-    - राशिफलको मुख्य विवरण त्यसकै मुनि वा सँगै सुरु गर्नुहोस्।
+    - राशिको नाम यसरी सुरु गर्नुहोस्: **♈ मेष राशि:** - राशिफलको मुख्य विवरण त्यसकै पछि सुरु गर्नुहोस्।
     - शीर्षक वा अतिरिक्त कुराहरू केही पनि नलेख्नुहोस्।`;
 
-    const userQuery = `${fullDateStr} को संक्षिप्त र सटिक १२ राशिको दैनिक राशिफल तयार पार्नुहोस्।`;
+    const userQuery = `${fullDateStr} को लागि संक्षिप्त र सटिक १२ राशिको दैनिक राशिफल तयार पार्नुहोस्।`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
@@ -36,15 +35,32 @@ async function run() {
         const data = await response.json();
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-        // Clean up text
-        rawContent = rawContent.trim();
+        if (!rawContent) {
+            console.error("No content generated from AI");
+            return;
+        }
+
+        // HTML मा रूपान्तरण गर्दा राशीको नामलाई स्टाइल गर्ने
+        // यसले **♈ मेष राशि:** जस्ता कुरालाई छुट्टै हेडलाइनमा बदल्छ
+        const formattedContent = rawContent
+            .trim()
+            .replace(/\*\*(.*?)\*\*/g, (match, p1) => {
+                return `<div style="color: #d4af37; font-size: 20px; font-weight: bold; margin-top: 18px; margin-bottom: 2px; border-left: 4px solid #d4af37; padding-left: 10px; display: block;">${p1}</div>`;
+            })
+            .split('\n')
+            .filter(line => line.trim() !== "")
+            .map(line => {
+                if (line.includes('border-left')) return line; // यदि हेडलाइन हो भने सिधै पठाउने
+                return `<p style="margin: 0 0 10px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px; line-height: 1.6;">${line}</p>`;
+            })
+            .join('');
 
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 700px; margin: -35px auto 0 auto; background-color: #000; color: #eee; line-height: 1.5;">
+            <div style="font-family: 'Mukta', sans-serif; max-width: 700px; margin: -35px auto 0 auto; background-color: #000; color: #eee;">
                 
                 <!-- Compact Header -->
-                <div style="text-align: center; padding: 15px 0; border-bottom: 1px solid #333; margin-bottom: 10px;">
-                    <h2 style="color: #d4af37; font-size: 26px; margin: 0; padding: 0; text-transform: uppercase; letter-spacing: 1px;">
+                <div style="text-align: center; padding: 15px 0; border-bottom: 1px solid #333; margin-bottom: 15px;">
+                    <h2 style="color: #d4af37; font-size: 28px; margin: 0; padding: 0; text-transform: uppercase;">
                         आजको राशिफल
                     </h2>
                     <p style="font-size: 14px; color: #999; margin: 2px 0 0 0;">${fullDateStr}</p>
@@ -52,46 +68,11 @@ async function run() {
                 
                 <!-- Content Area -->
                 <div style="padding: 0 15px;">
-                    ${rawContent
-                        .split('\n')
-                        .filter(line => line.trim().length > 5) // साना लाइनहरूलाई हटाउने
-                        .map(line => {
-                            // राशीको नाम भएको लाइन चिन्नका लागि (तारा चिन्ह वा इमोजी भएमा)
-                            if (line.includes('**') || line.match(/[♈-♓]/u)) {
-                                let cleanLine = line.replace(/\*\*/g, '').trim();
-                                
-                                // कोलन (:) भएमा वा नभए पनि राशीको नाम र फल छुट्याउने लजिक
-                                let rashiName = "";
-                                let rashiFruit = "";
-
-                                if (cleanLine.includes(':')) {
-                                    let parts = cleanLine.split(':');
-                                    rashiName = parts[0].trim();
-                                    rashiFruit = parts.slice(1).join(':').trim();
-                                } else {
-                                    // यदि कोलन छैन भने पहिलो ३-४ शब्दलाई नाम मान्ने
-                                    let words = cleanLine.split(' ');
-                                    rashiName = words.slice(0, 3).join(' ');
-                                    rashiFruit = words.slice(3).join(' ').trim();
-                                }
-
-                                return `
-                                    <div style="margin-top: 15px;">
-                                        <div style="color: #d4af37; font-size: 19px; font-weight: bold; margin-bottom: 2px; border-left: 4px solid #d4af37; padding-left: 10px;">
-                                            ${rashiName}
-                                        </div>
-                                        <p style="margin: 0 0 10px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">
-                                            ${rashiFruit}
-                                        </p>
-                                    </div>`;
-                            }
-                            // सामान्य लाइनहरूका लागि
-                            return `<p style="margin: 5px 0 15px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">${line.replace(/\*\*/g, '')}</p>`;
-                        }).join('')}
+                    ${formattedContent}
                 </div>
 
                 <!-- Footer -->
-                <div style="margin-top: 25px; padding: 15px; border-top: 1px solid #222; text-align: center; color: #666; font-size: 12px; letter-spacing: 0.5px;">
+                <div style="margin-top: 30px; padding: 15px; border-top: 1px solid #222; text-align: center; color: #666; font-size: 13px;">
                     © त्रिकाल ज्ञान मार्ग | डिजिटल ज्योतिष डायरी
                 </div>
             </div>
