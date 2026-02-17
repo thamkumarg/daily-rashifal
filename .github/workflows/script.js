@@ -1,0 +1,34 @@
+name: Daily Rashifal Publisher
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '15 18 * * *' # नेपाली समय अनुसार राती १२:०० बजे (UTC 18:15)
+  workflow_dispatch: # हातले टेस्ट गर्न मिल्ने बटन
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: |
+          npm init -y
+          npm install node-fetch@2
+
+      - name: Run Rashifal Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WP_PASS: ${{ secrets.WP_PASS }}
+          WP_URL: "https://tkg.com.np"
+          WP_USER: "trikal"
+        run: node script.js
