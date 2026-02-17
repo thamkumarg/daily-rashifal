@@ -1,8 +1,8 @@
 /**
  * सुधारिएको script.js
- * १. शीर्षक र बडी बीचको ग्याप हटाइएको।
- * २. राशीको नाम र विवरणलाई एकदमै नजिक ल्याइएको।
- * ३. अलाइनमेन्टलाई सफा बनाइएको।
+ * १. कन्ट्यान्ट नदेखिने समस्या समाधान (Regex Improvements)
+ * २. शीर्षक र बडी बीचको ग्याप अझै कम गरिएको।
+ * ३. राशीको नाम र विवरणलाई जोडेर राखिएको।
  */
 
 async function run() {
@@ -16,12 +16,12 @@ async function run() {
     const fullDateStr = `आज मिति ${vsDate} तदनुसार ${adDate}`;
 
     const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। 
-    - प्रत्येक राशिको फल एउटा अनुच्छेद (Paragraph) मा लेख्नुहोस्।
-    - शीर्षक वा मिति बडीमा नलेख्नुहोस्।
-    - ढाँचा: **♈ मेष राशि:** तपाईँको आजको दिन... (चिह्न र नाम एउटै लाइनमा)।
-    - शुभ अंक र रङलाई अन्त्यमा सानो फन्टमा राख्नुहोस्।`;
+    - प्रत्येक राशिको फल एक-एक अनुच्छेद (Paragraph) मा लेख्नुहोस्।
+    - राशिको नाम यसरी लेख्नुहोस्: **♈ मेष राशि:**
+    - राशिफलको मुख्य विवरण त्यसकै मुनि वा सँगै सुरु गर्नुहोस्।
+    - शीर्षक वा अतिरिक्त कुराहरू केही पनि नलेख्नुहोस्।`;
 
-    const userQuery = `${fullDateStr} को संक्षिप्त र सटिक दैनिक राशिफल तयार पार्नुहोस्।`;
+    const userQuery = `${fullDateStr} को संक्षिप्त र सटिक १२ राशिको दैनिक राशिफल तयार पार्नुहोस्।`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
@@ -37,38 +37,49 @@ async function run() {
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
         // Clean up text
-        rawContent = rawContent.trim().replace(/\n{2,}/g, '\n');
+        rawContent = rawContent.trim();
 
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 700px; margin: -20px auto 0 auto; background-color: #000; color: #eee; line-height: 1.6;">
+            <div style="font-family: 'Mukta', sans-serif; max-width: 700px; margin: -35px auto 0 auto; background-color: #000; color: #eee; line-height: 1.5;">
                 
                 <!-- Compact Header -->
-                <div style="text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 15px;">
-                    <h2 style="color: #d4af37; font-size: 28px; margin: 0; padding: 0; text-transform: uppercase;">
+                <div style="text-align: center; padding: 15px 0; border-bottom: 1px solid #333; margin-bottom: 10px;">
+                    <h2 style="color: #d4af37; font-size: 26px; margin: 0; padding: 0; text-transform: uppercase; letter-spacing: 1px;">
                         आजको राशिफल
                     </h2>
-                    <p style="font-size: 15px; color: #888; margin: 5px 0 0 0;">${fullDateStr}</p>
+                    <p style="font-size: 14px; color: #999; margin: 2px 0 0 0;">${fullDateStr}</p>
                 </div>
                 
                 <!-- Content Area -->
-                <div style="padding: 0 10px;">
+                <div style="padding: 0 15px;">
                     ${rawContent
                         .split('\n')
+                        .filter(line => line.trim().length > 0)
                         .map(line => {
-                            if (line.includes('**')) {
-                                // For Zodiac Names
-                                return line.replace(/\*\*(.*?)\*\*/g, 
-                                    '<div style="color: #d4af37; font-size: 19px; font-weight: bold; margin-top: 15px; margin-bottom: 2px; border-left: 3px solid #d4af37; padding-left: 10px;">$1</div>');
-                            } else if (line.trim() !== "") {
-                                // For Body Text
-                                return `<p style="margin: 0 0 10px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 13px;">${line}</p>`;
+                            // Detecting Zodiac headers with ** or symbols
+                            if (line.includes('**') || line.match(/^[♈-♓]/u)) {
+                                let cleanLine = line.replace(/\*\*/g, '').trim();
+                                // Separate Title and Description if they are in the same line
+                                let parts = cleanLine.split(':');
+                                if (parts.length > 1) {
+                                    return `
+                                        <div style="margin-top: 12px;">
+                                            <div style="color: #d4af37; font-size: 19px; font-weight: bold; margin-bottom: 0px; border-left: 4px solid #d4af37; padding-left: 10px;">
+                                                ${parts[0].trim()}
+                                            </div>
+                                            <p style="margin: 2px 0 8px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">
+                                                ${parts.slice(1).join(':').trim()}
+                                            </p>
+                                        </div>`;
+                                }
                             }
-                            return '';
+                            // Fallback for regular lines
+                            return `<p style="margin: 5px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">${line.replace(/\*\*/g, '')}</p>`;
                         }).join('')}
                 </div>
 
                 <!-- Footer -->
-                <div style="margin-top: 30px; padding: 15px; border-top: 1px dotted #444; text-align: center; color: #555; font-size: 13px;">
+                <div style="margin-top: 25px; padding: 15px; border-top: 1px solid #222; text-align: center; color: #666; font-size: 12px; letter-spacing: 0.5px;">
                     © त्रिकाल ज्ञान मार्ग | डिजिटल ज्योतिष डायरी
                 </div>
             </div>
@@ -90,7 +101,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("Successfully Published with improved alignment!");
+            console.log("Successfully Published with maximum gap reduction!");
         } else {
             console.error("WP Error:", await wpRes.text());
         }
