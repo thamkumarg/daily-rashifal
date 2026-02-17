@@ -1,7 +1,7 @@
 /**
- * FINAL STABLE VERSION - FULL COMPATIBILITY FIX
+ * FINAL STABLE VERSION - RE-ENGINEERED
  * १. अङ्ग्रेजी मितिलाई एआई मार्फत सही नेपाली गतेमा परिवर्तन गर्ने।
- * २. वर्डप्रेस प्रमाणीकरणका लागि सुधारिएको https मोड्युल।
+ * २. वर्डप्रेस प्रमाणीकरणका लागि सबैभन्दा सरल र भरपर्दो तरिका।
  * ३. गिटहब एक्सन (Actions) को लागि पूर्ण रूपमा अनुकूलित।
  */
 
@@ -30,7 +30,9 @@ async function run() {
     कुनै पनि भूमिका वा कोड ब्लक नलेख्नुहोस्। सिधै राशिफलबाट सुरु गर्नुहोस्।`;
 
     try {
-        console.log(`Step 1: Fetching content from Gemini for ${englishDateStr}...`);
+        console.log(`Step 1: Fetching content from Gemini...`);
+        
+        // Gemini API call using native fetch (supported in Node 18+)
         const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -43,7 +45,10 @@ async function run() {
         const data = await aiResponse.json();
         let rawContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
-        if (!rawContent || rawContent.length < 100) throw new Error("AI Content Generation Failed.");
+        if (!rawContent || rawContent.length < 100) {
+            console.error("AI Content Error:", JSON.stringify(data));
+            throw new Error("AI Content Generation Failed.");
+        }
 
         rawContent = rawContent.replace(/```html/gi, '').replace(/```/g, '').replace(/\*\*/g, '').trim();
 
@@ -69,7 +74,6 @@ async function run() {
 
         const auth = Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
         
-        // केही वर्डप्रेस साइटहरूमा /index.php/wp-json/ आवश्यक हुन सक्छ
         const options = {
             hostname: WP_HOST,
             port: 443,
@@ -79,8 +83,7 @@ async function run() {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData),
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Connection': 'keep-alive'
+                'User-Agent': 'NodeJS'
             }
         };
 
@@ -89,23 +92,20 @@ async function run() {
             res.on('data', (chunk) => { resBody += chunk; });
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
-                    console.log(`SUCCESS: Post Published! (Status: ${res.statusCode})`);
+                    console.log(`SUCCESS: Post Published! ID: ${JSON.parse(resBody).id}`);
                 } else {
-                    console.error(`FAILED: WordPress Error Status ${res.statusCode}`);
+                    console.error(`FAILED: WP Status ${res.statusCode}`);
                     console.error("Response:", resBody);
                 }
             });
         });
 
-        req.on('error', (e) => {
-            console.error(`Network Error: ${e.message}`);
-        });
-
+        req.on('error', (e) => { console.error(`Network Error: ${e.message}`); });
         req.write(postData);
         req.end();
 
     } catch (error) {
-        console.error("Critical Execution Error:", error.message);
+        console.error("Critical Error:", error.message);
     }
 }
 
