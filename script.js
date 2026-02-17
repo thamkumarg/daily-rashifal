@@ -77,6 +77,7 @@ async function run() {
         `;
 
         console.log("Step 2: Sending post to WordPress...");
+        // प्रमाणीकरण हेडर निर्माण
         const authHeader = 'Basic ' + Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
 
         const wpRes = await fetch(`${WP_URL}/wp-json/wp/v2/posts`, {
@@ -84,28 +85,28 @@ async function run() {
             headers: {
                 'Authorization': authHeader,
                 'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Node.js Script)',
+                'User-Agent': 'Node-Fetch/1.0',
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
                 title: `आजको राशिफल - ${englishDateStr}`,
                 content: finalHTML,
                 status: 'publish',
-                categories: [1]
+                categories: [1],
+                format: 'standard'
             })
         });
 
         if (wpRes.ok) {
             const resData = await wpRes.json();
-            console.log(`SUCCESS: Post published! ID: ${resData.id}`);
+            console.log(`SUCCESS: Post published! ID: ${resData.id} - URL: ${resData.link}`);
         } else {
             const errStatus = wpRes.status;
             const errText = await wpRes.text();
             console.error(`WordPress API Error (${errStatus}): ${errText}`);
             
-            // यदि ४०१ एरर आयो भने पासवर्ड वा युजरनेम मिलेन भन्ने बुझिन्छ
             if(errStatus === 401) {
-                console.error("Auth Failed: Please check WP_PASS in GitHub Secrets.");
+                console.error("Auth Failed: तपाईँको WP_PASS (Application Password) सही छ कि छैन पुन: जाँच्नुहोस्।");
             }
         }
 
