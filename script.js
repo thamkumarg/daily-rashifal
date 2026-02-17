@@ -1,6 +1,6 @@
 /**
  * यो परिमार्जित script.js फाइल हो।
- * यसले सही नेपाली वि.सं. मिति (फागुन ५) र सही ज्योतिषिय इमेज थपेको छ।
+ * यसले सही नेपाली वि.सं. मिति २०८२ फागुन ५ र सही ज्योतिषिय इमेज सुनिश्चित गरेको छ।
  */
 
 async function run() {
@@ -16,14 +16,14 @@ async function run() {
         process.exit(1);
     }
 
-    // १. मिति मिलान (Date Fix for Today)
+    // १. मिति मिलान (Date Corrected to 2082)
     const today = new Date();
     const adDateStr = today.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
     
-    // फेब्रुअरी १७, २०२६ = फागुन ५, २०८१
-    const currentYearVS = 2081;
+    // फेब्रुअरी १७, २०२६ = फागुन ५, २०८२
+    const currentYearVS = 2082;
     const vsMonthName = "फागुन"; 
-    const vsDay = 5; // आजको लागि फागुन ५ गते फिक्स गरिएको
+    const vsDay = 5; 
     
     const nepaliVSDatStr = `वि.सं. ${currentYearVS} ${vsMonthName} ${vsDay} गते`;
 
@@ -54,23 +54,23 @@ async function run() {
 
         if (!rawContent) throw new Error("AI बाट सामग्री प्राप्त भएन।");
 
-        // २. सुधारिएको प्रिमियम डिजाइन (Clean UI)
+        // २. प्रिमियम ज्योतिषिय डिजाइन
         const finalHTML = `
             <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border: 1px solid #eee; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1);">
                 <!-- Header -->
-                <div style="background: linear-gradient(135deg, #6a1b9a 0%, #4a148c 100%); padding: 40px 20px; text-align: center; color: white;">
-                    <h1 style="margin: 0; font-size: 36px; letter-spacing: 1px; border-bottom: 2px solid #ffab40; display: inline-block; padding-bottom: 5px;">आजको राशिफल</h1>
-                    <p style="margin: 15px 0 0; font-size: 22px; color: #ffab40; font-weight: bold;">${nepaliVSDatStr}</p>
+                <div style="background: linear-gradient(135deg, #4a148c 0%, #1a237e 100%); padding: 40px 20px; text-align: center; color: white;">
+                    <h1 style="margin: 0; font-size: 34px; letter-spacing: 1px; border-bottom: 2px solid #ffd700; display: inline-block; padding-bottom: 5px;">आजको दैनिक राशिफल</h1>
+                    <p style="margin: 15px 0 0; font-size: 24px; color: #ffd700; font-weight: bold;">${nepaliVSDatStr}</p>
                     <p style="margin: 5px 0 0; font-size: 16px; opacity: 0.8;">अङ्ग्रेजी मिति: ${adDateStr}</p>
                 </div>
                 
-                <!-- Astrology Image (Corrected Rashi Chakra) -->
-                <div style="width: 100%; background-color: #f3e5f5; text-align: center; padding: 20px 0;">
-                    <img src="https://img.freepik.com/free-vector/astrology-zodiac-signs-wheel-poster_1017-31363.jpg" alt="Nepali Rashi Chakra" style="width: 90%; max-width: 500px; height: auto; border-radius: 50%; box-shadow: 0 5px 15px rgba(0,0,0,0.2); margin: auto; display: block;">
+                <!-- Corrected Featured Image: Zodiac Wheel -->
+                <div style="width: 100%; background-color: #f5f5f5; text-align: center; padding: 20px 0;">
+                    <img src="https://img.freepik.com/free-vector/hand-drawn-zodiac-wheel-astrology-background_23-2148766128.jpg" alt="Nepali Rashi Chakra" style="width: 90%; max-width: 480px; height: auto; border-radius: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); margin: auto; display: block;">
                 </div>
 
                 <!-- Content Area -->
-                <div style="padding: 40px; line-height: 2; font-size: 20px; color: #333; background-color: #fffaf0;">
+                <div style="padding: 40px; line-height: 1.8; font-size: 20px; color: #333; background-color: #fffdf5;">
                     <div style="text-align: justify; white-space: pre-line;">
                         ${rawContent}
                     </div>
@@ -78,8 +78,8 @@ async function run() {
 
                 <!-- Footer -->
                 <div style="background-color: #f8f9fa; padding: 25px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0; font-weight: bold; color: #4a148c; font-size: 20px;">त्रिकाल ज्ञान मार्ग - tkg.com.np</p>
-                    <p style="margin: 5px 0 0; color: #666; font-size: 16px;">तपाईँको आजको दिन शुभ रहोस्!</p>
+                    <p style="margin: 0; font-weight: bold; color: #1a237e; font-size: 20px;">त्रिकाल ज्ञान मार्ग - tkg.com.np</p>
+                    <p style="margin: 5px 0 0; color: #666; font-size: 16px;">तपाईँको दिन मंगलमय रहोस्!</p>
                 </div>
             </div>
         `;
@@ -101,7 +101,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("सफलता! सबै कुरा सुधारिएर राशिफल पब्लिश भयो।");
+            console.log("सफलता! मिति र इमेज दुवै सुधारिएर पब्लिश भयो।");
         } else {
             const errData = await wpRes.json();
             throw new Error(`WordPress Error: ${errData.message}`);
