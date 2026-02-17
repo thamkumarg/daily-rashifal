@@ -21,8 +21,7 @@ function fetchAIContent(apiKey, englishDateStr) {
             path: `/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
             method: 'POST',
             headers: { 
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(aiPayload)
+                'Content-Type': 'application/json'
             }
         };
 
@@ -98,12 +97,12 @@ async function run() {
     const WP_PASS = (process.env.WP_PASS || "").trim().replace(/\s/g, '');
 
     if (!apiKey) {
-        console.error("❌ Error: GEMINI_API_KEY is missing.");
-        return;
+        console.error("❌ Error: GEMINI_API_KEY is missing in Secrets.");
+        process.exit(1);
     }
     if (!WP_PASS) {
-        console.error("❌ Error: WP_PASS is missing.");
-        return;
+        console.error("❌ Error: WP_PASS is missing in Secrets.");
+        process.exit(1);
     }
 
     try {
@@ -138,7 +137,6 @@ async function run() {
 
     } catch (error) {
         console.error(`❌ CRITICAL FAILURE: ${error.message}`);
-        // गिटहब एक्सनलाई फेल भएको जानकारी दिन
         process.exit(1);
     }
 }
