@@ -1,8 +1,8 @@
 /**
  * सुधारिएको script.js
- * १. कन्ट्यान्ट नदेखिने समस्या समाधान (Regex Improvements)
- * २. शीर्षक र बडी बीचको ग्याप अझै कम गरिएको।
- * ३. राशीको नाम र विवरणलाई जोडेर राखिएको।
+ * १. कन्ट्यान्ट नदेखिने समस्या पूर्ण रूपमा समाधान (Flexible Parsing)
+ * २. राशीको नाम र फललाई कोलन (:) नभए पनि चिन्न सक्ने बनाइएको।
+ * ३. अलाइनमेन्ट र ग्यापलाई थप सुक्ष्म बनाइएको।
  */
 
 async function run() {
@@ -17,7 +17,7 @@ async function run() {
 
     const systemPrompt = `तपाईँ एक अनुभवी वैदिक ज्योतिष हुनुहुन्छ। 
     - प्रत्येक राशिको फल एक-एक अनुच्छेद (Paragraph) मा लेख्नुहोस्।
-    - राशिको नाम यसरी लेख्नुहोस्: **♈ मेष राशि:**
+    - राशिको नाम यसरी सुरु गर्नुहोस्: **♈ मेष राशि:** (चिह्न र नाम अनिवार्य)।
     - राशिफलको मुख्य विवरण त्यसकै मुनि वा सँगै सुरु गर्नुहोस्।
     - शीर्षक वा अतिरिक्त कुराहरू केही पनि नलेख्नुहोस्।`;
 
@@ -54,27 +54,39 @@ async function run() {
                 <div style="padding: 0 15px;">
                     ${rawContent
                         .split('\n')
-                        .filter(line => line.trim().length > 0)
+                        .filter(line => line.trim().length > 5) // साना लाइनहरूलाई हटाउने
                         .map(line => {
-                            // Detecting Zodiac headers with ** or symbols
-                            if (line.includes('**') || line.match(/^[♈-♓]/u)) {
+                            // राशीको नाम भएको लाइन चिन्नका लागि (तारा चिन्ह वा इमोजी भएमा)
+                            if (line.includes('**') || line.match(/[♈-♓]/u)) {
                                 let cleanLine = line.replace(/\*\*/g, '').trim();
-                                // Separate Title and Description if they are in the same line
-                                let parts = cleanLine.split(':');
-                                if (parts.length > 1) {
-                                    return `
-                                        <div style="margin-top: 12px;">
-                                            <div style="color: #d4af37; font-size: 19px; font-weight: bold; margin-bottom: 0px; border-left: 4px solid #d4af37; padding-left: 10px;">
-                                                ${parts[0].trim()}
-                                            </div>
-                                            <p style="margin: 2px 0 8px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">
-                                                ${parts.slice(1).join(':').trim()}
-                                            </p>
-                                        </div>`;
+                                
+                                // कोलन (:) भएमा वा नभए पनि राशीको नाम र फल छुट्याउने लजिक
+                                let rashiName = "";
+                                let rashiFruit = "";
+
+                                if (cleanLine.includes(':')) {
+                                    let parts = cleanLine.split(':');
+                                    rashiName = parts[0].trim();
+                                    rashiFruit = parts.slice(1).join(':').trim();
+                                } else {
+                                    // यदि कोलन छैन भने पहिलो ३-४ शब्दलाई नाम मान्ने
+                                    let words = cleanLine.split(' ');
+                                    rashiName = words.slice(0, 3).join(' ');
+                                    rashiFruit = words.slice(3).join(' ').trim();
                                 }
+
+                                return `
+                                    <div style="margin-top: 15px;">
+                                        <div style="color: #d4af37; font-size: 19px; font-weight: bold; margin-bottom: 2px; border-left: 4px solid #d4af37; padding-left: 10px;">
+                                            ${rashiName}
+                                        </div>
+                                        <p style="margin: 0 0 10px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">
+                                            ${rashiFruit}
+                                        </p>
+                                    </div>`;
                             }
-                            // Fallback for regular lines
-                            return `<p style="margin: 5px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">${line.replace(/\*\*/g, '')}</p>`;
+                            // सामान्य लाइनहरूका लागि
+                            return `<p style="margin: 5px 0 15px 0; text-align: justify; font-size: 17px; color: #ccc; padding-left: 14px;">${line.replace(/\*\*/g, '')}</p>`;
                         }).join('')}
                 </div>
 
@@ -101,7 +113,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("Successfully Published with maximum gap reduction!");
+            console.log("Successfully Published!");
         } else {
             console.error("WP Error:", await wpRes.text());
         }
