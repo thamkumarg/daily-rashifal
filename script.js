@@ -1,12 +1,11 @@
 /**
  * यो परिमार्जित script.js फाइल हो।
- * कुनै पनि बाह्य इमेज लिङ्क प्रयोग नगरी HTML/CSS बाट शुद्ध वैदिक डिजाइन तयार गरिएको छ।
- * धार्मिक सन्दर्भ (इद/रमदान) आउने सम्भावना शून्य पारिएको छ।
- * मिति: २०८२ फागुन ५ गते।
+ * प्रयोगकर्ताले पठाएको स्क्रिनसट अनुसार 'Dark & Gold' प्रिमियम थिम तयार गरिएको छ।
+ * बाह्य इमेजको साटो शुद्ध CSS र आकर्षक फन्टको प्रयोग गरिएको छ।
  */
 
 async function run() {
-    console.log("--- शुद्ध वैदिक ज्योतिष अटोमेसन सुरु भयो ---");
+    console.log("--- प्रिमियम डार्क वैदिक ज्योतिष अटोमेसन सुरु भयो ---");
     
     const API_KEY = process.env.GEMINI_API_KEY;
     const WP_URL = "https://tkg.com.np";
@@ -24,19 +23,20 @@ async function run() {
     const vsDay = 5; 
     const adDateStr = "फेब्रुअरी १७, २०२६";
     
-    const nepaliVSDatStr = `वि.सं. ${currentYearVS} ${vsMonthName} ${vsDay} गते`;
+    const nepaliVSDatStr = `${vsDay} ${vsMonthName} ${currentYearVS}`;
+    const fullDateStr = `आज ${nepaliVSDatStr} तदनुसार ${adDateStr}`;
 
-    console.log(`मिति फिक्स: ${nepaliVSDatStr}`);
+    console.log(`मिति फिक्स: ${fullDateStr}`);
 
     const systemPrompt = `तपाईँ एक उच्च कोटिको सनातन वैदिक ज्योतिष हुनुहुन्छ। 
     तपाईँले १२ राशिको दैनिक राशिफल शुद्ध नेपाली भाषामा लेख्नुपर्छ। 
-    - कुनै पनि अन्य धर्म वा पर्व (इद, रमदान, आदि) को नाम झुक्किएर पनि नलेख्नुहोस्।
-    - राशिफलको सुरुमा कुनै शुभकामना सन्देश नराख्नुहोस्।
+    - सामग्री सुरु गर्दा कुनै पनि भूमिका वा शुभकामना सन्देश नलेख्नुहोस्।
     - सिधै १२ राशिको फल मात्र लेख्नुहोस्।
     - प्रत्येक राशिको सुरुमा आइकन र नाम बोल्डमा राख्नुहोस् (उदा: ♈ **मेष राशि**)।
-    - अन्त्यमा प्रत्येक राशिको शुभ अंक र शुभ रङ अनिवार्य राख्नुहोस्।`;
+    - सामग्रीको अन्त्यमा प्रत्येक राशिको शुभ अंक र शुभ रङ अनिवार्य राख्नुहोस्।
+    - कुनै पनि अन्य धार्मिक सन्दर्भ (इद/रमदान) उल्लेख नगर्नुहोस्।`;
 
-    const userQuery = `आज मिति ${nepaliVSDatStr} को लागि शुद्ध वैदिक ज्योतिषमा आधारित दैनिक राशिफल तयार पार्नुहोस्।`;
+    const userQuery = `आज मिति ${fullDateStr} को लागि दैनिक राशिफल तयार पार्नुहोस्। १२ वटै राशिको फल आकर्षक र स्पष्ट भाषामा हुनुपर्छ।`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
@@ -53,36 +53,32 @@ async function run() {
 
         if (!rawContent) throw new Error("AI बाट सामग्री प्राप्त भएन।");
 
-        // २. शुद्ध सनातन डिजाइन (कुनै पनि बाह्य इमेज प्रयोग नगरिएको)
+        // २. प्रिमियम डार्क एण्ड गोल्ड डिजाइन (स्क्रिनसट अनुसार)
         const finalHTML = `
-            <div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border: 3px solid #b71c1c; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.2);">
+            <div style="font-family: 'Mukta', sans-serif; max-width: 850px; margin: auto; background-color: #000000; color: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #222;">
                 
-                <!-- Header: Saffron & Red Vedic Theme -->
-                <div style="background: linear-gradient(135deg, #b71c1c 0%, #ff6f00 100%); padding: 40px 20px; text-align: center; color: white; border-bottom: 6px solid #ffd700;">
-                    <div style="font-size: 50px; margin-bottom: 10px;">ॐ</div>
-                    <h1 style="margin: 0; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);">दैनिक राशिफल</h1>
-                    <p style="margin: 10px 0 0; font-size: 26px; color: #ffd700; font-weight: bold;">${nepaliVSDatStr}</p>
+                <!-- Title Header -->
+                <div style="padding: 60px 20px 40px; text-align: center; background: linear-gradient(to bottom, #111 0%, #000 100%);">
+                    <h1 style="margin: 0; font-size: 52px; font-weight: 700; color: #d4af37; letter-spacing: 1px; line-height: 1.2;">
+                        आज ${vsDay} ${vsMonthName} ${currentYearVS} <br>
+                        तदनुसार ${adDateStr} को राशिफल
+                    </h1>
+                    <div style="width: 100px; hieght: 2px; background: #d4af37; margin: 25px auto 0;"></div>
                 </div>
                 
-                <!-- Symbolic Design (इमेजको सट्टामा CSS आइकन र डिजाइन) -->
-                <div style="background-color: #fffaf0; padding: 30px; text-align: center;">
-                    <div style="display: inline-block; padding: 20px; border: 4px double #b71c1c; border-radius: 50%;">
-                        <span style="font-size: 80px; color: #b71c1c;">🚩</span>
-                    </div>
-                    <h2 style="color: #b71c1c; margin-top: 15px;">शुभ दिनको कामना</h2>
-                </div>
-
-                <!-- Content Area -->
-                <div style="padding: 40px; line-height: 2; font-size: 20px; color: #111; background-color: #ffffff;">
-                    <div style="text-align: justify; white-space: pre-line; border-left: 4px solid #b71c1c; padding-left: 25px;">
-                        ${rawContent}
+                <!-- Content Section -->
+                <div style="padding: 20px 50px 60px; background-color: #000000; line-height: 1.8; font-size: 21px; text-align: justify; color: #ccc;">
+                    <div style="white-space: pre-line; border-top: 1px solid #333; padding-top: 30px;">
+                        ${rawContent.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #d4af37; font-size: 24px;">$1</strong>')}
                     </div>
                 </div>
 
                 <!-- Footer -->
-                <div style="background-color: #b71c1c; padding: 25px; text-align: center; color: white;">
-                    <p style="margin: 0; font-weight: bold; font-size: 22px; color: #ffd700;">त्रिकाल ज्ञान मार्ग</p>
-                    <p style="margin: 5px 0 0; font-size: 16px; opacity: 0.9;">tkg.com.np | धर्म रक्षति रक्षित: </p>
+                <div style="padding: 30px; border-top: 1px solid #222; text-align: center; background-color: #050505;">
+                    <p style="margin: 0; font-size: 18px; color: #777; letter-spacing: 2px; text-transform: uppercase;">
+                        BY त्रिकाल ज्ञान मार्ग | TKG TODAY
+                    </p>
+                    <p style="margin: 10px 0 0; color: #d4af37; font-size: 14px;">tkg.com.np | धर्म रक्षति रक्षित:</p>
                 </div>
             </div>
         `;
@@ -96,7 +92,7 @@ async function run() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                title: `दैनिक राशिफल: ${nepaliVSDatStr}`,
+                title: `तपाईँको आज- ${vsDay} ${vsMonthName} ${currentYearVS}`,
                 content: finalHTML,
                 status: 'publish',
                 format: 'standard'
@@ -104,7 +100,7 @@ async function run() {
         });
 
         if (wpRes.ok) {
-            console.log("सफलता! शुद्ध सनातन सामग्री पब्लिश भयो।");
+            console.log("सफलता! प्रिमियम डार्क थिममा राशिफल पब्लिश भयो।");
         } else {
             const errData = await wpRes.json();
             throw new Error(`WordPress Error: ${errData.message}`);
