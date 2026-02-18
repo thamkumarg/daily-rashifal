@@ -2,6 +2,7 @@
  * 🕉️ TKG RASHIFALA - FINAL AUTO-RECOVERY SCRIPT
  * This script auto-detects available models to fix 404 errors.
  * Fix: Corrected Nepali Year to 2082 (for Feb 2026)
+ * UI: Enhanced Premium Design for WordPress
  */
 
 const https = require('https');
@@ -25,7 +26,7 @@ async function run() {
         console.log("🔍 Fetching allowed models for your API key...");
         const modelsList = await getAvailableModels(apiKey);
         
-        // Find the best working model (Flash 1.5, or Pro, or any available)
+        // Find the best working model
         const selectedModel = modelsList.find(m => m.includes('gemini-1.5-flash')) || 
                              modelsList.find(m => m.includes('gemini-1.0-pro')) || 
                              modelsList[0];
@@ -36,16 +37,39 @@ async function run() {
         // STEP 2: Generate Horoscope Content
         const rawContent = await generateAIContent(apiKey, selectedModel, fullDateDisplay);
         
-        // Clean and Format Content for WordPress
+        // Premium UI Formatting
         const htmlBody = `
-<div style="font-family: 'Mukta', sans-serif; border: 2px solid #d32f2f; border-radius: 12px; padding: 20px; background-color: #ffffff; max-width: 750px; margin: auto;">
-    <h1 style="color: #d32f2f; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">आजको राशिफल</h1>
-    <p style="text-align: center; font-size: 1.1em; color: #555;"><b>मिति:</b> ${fullDateDisplay}</p>
-    <div style="font-size: 18px; line-height: 1.8; color: #333; margin-top: 20px;">
-        ${rawContent.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
+<div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #fdfaf5; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+    <!-- Header Banner -->
+    <div style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); padding: 40px 20px; text-align: center; color: white;">
+        <h1 style="margin: 0; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">🕉️ आजको राशिफल</h1>
+        <p style="margin: 10px 0 0; font-size: 18px; opacity: 0.9;">${fullDateDisplay}</p>
     </div>
-    <hr style="margin-top: 30px; border: 0; border-top: 1px solid #eee;">
-    <p style="text-align: center; color: #888; font-size: 14px;">© त्रिकाल ज्ञान मार्ग (TKG) - आध्यात्मिक यात्रा</p>
+
+    <div style="padding: 30px; background: white;">
+        <div style="font-size: 19px; line-height: 2; color: #2d3748; text-align: justify;">
+            ${rawContent.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+                
+                // If the line starts with an emoji, it's a zodiac sign - style it as a card
+                if (trimmed.match(/^[♈♉♊♋♌♍♎♏♐♑♒♓]/)) {
+                    return `
+                    <div style="background: #fffcf0; border-left: 5px solid #d32f2f; padding: 15px 20px; border-radius: 8px; margin: 25px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                        <div style="font-size: 22px; color: #b71c1c; font-weight: bold; margin-bottom: 8px;">${trimmed.split(':')[0]}</div>
+                        <div style="color: #4a5568;">${trimmed.split(':').slice(1).join(':').trim()}</div>
+                    </div>`;
+                }
+                return `<p>${trimmed}</p>`;
+            }).join('')}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8fafc; padding: 25px; text-align: center; border-top: 1px solid #edf2f7;">
+        <p style="margin: 0; color: #718096; font-size: 15px;">प्रस्तुति: <b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
+        <p style="margin: 5px 0 0; color: #a0aec0; font-size: 13px;">आध्यात्मिक मार्गदर्शन र ज्योतिषिय विश्लेषण</p>
+    </div>
 </div>`;
 
         // STEP 3: Post to WordPress
@@ -60,7 +84,6 @@ async function run() {
     }
 }
 
-// Function to find which models are actually working
 async function getAvailableModels(key) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
     return new Promise((resolve, reject) => {
@@ -81,16 +104,15 @@ async function getAvailableModels(key) {
     });
 }
 
-// Function to call AI with the auto-selected model
 async function generateAIContent(key, modelPath, date) {
     const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${key}`;
     const payload = JSON.stringify({
         contents: [{
             parts: [{
                 text: `Write a detailed daily horoscope in Nepali for all 12 zodiac signs for ${date}. 
-                Format: Use Bold Sign Name with Emoji (e.g., ♈ **मेष**). 
+                Format: Each sign MUST start with its emoji and name in this format "♈ मेष: [description]". 
                 Include: General prediction, Lucky Color (शुभ रङ), and Lucky Number (शुभ अंक) for each sign. 
-                Tone: Spiritual, helpful, and positive.`
+                Keep the tone spiritual and positive.`
             }]
         }]
     });
@@ -117,7 +139,6 @@ async function generateAIContent(key, modelPath, date) {
     });
 }
 
-// Function to post to WordPress
 function postToWP(host, user, pass, title, content) {
     const auth = Buffer.from(`${user}:${pass}`).toString('base64');
     const body = JSON.stringify({ title, content, status: 'publish' });
@@ -138,7 +159,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('end', () => {
                 if (res.statusCode === 201) {
                     const json = JSON.parse(responseData);
-                    resolve(json.link); // Return the URL of the published post
+                    resolve(json.link);
                 } else {
                     reject(new Error(`WordPress Rejected Post (Status: ${res.statusCode}) - ${responseData}`));
                 }
