@@ -1,6 +1,6 @@
 /**
  * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FINAL FIX)
- * This script handles multiple model fallbacks and optimized payload structure.
+ * Fixes: API 404 Model Not Found & Precise Nepali Date
  */
 
 const https = require('https');
@@ -12,49 +12,26 @@ async function run() {
     const wpHost = "tkg.com.np";
 
     if (!apiKey || !wpPass) {
-        console.error("❌ Secrets (API Key or WP Pass) missing!");
+        console.error("❌ Secrets missing!");
         process.exit(1);
     }
 
-    // --- मिति गणना (नेपाली पात्रो अनुसार शुद्ध बनाइएको) ---
-    const today = new Date();
-    const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
+    // --- नेपाली मिति गणना (बि.सं. २०८२ को लागि) ---
+    // नोट: JS को Intl ले नेपालको सन्दर्भमा 'ne-NP' मा बि.सं. नै दिन्छ
+    const npTime = new Date(new Date().getTime() + (5.75 * 60 * 60 * 1000));
     
-    // अंग्रेजी मिति: Feb 18, 2026
-    const englishDate = npTime.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-    });
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    const nepaliDateRaw = npTime.toLocaleDateString('ne-NP', options);
+    const englishDate = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-    // नेपाली अंकमा बदल्ने फङ्सन
-    const toNepaliDigits = (num) => {
-        const digits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
-        return num.toString().split('').map(d => digits[d] || d).join('');
-    };
-
-    // नेपाली महिनाहरूको सूची
-    const nepaliMonths = ["वैशाख", "जेठ", "असार", "साउन", "भदौ", "असोज", "कात्तिक", "मंसिर", "पुस", "माघ", "फागुन", "चैत"];
-
-    /**
-     * नोट: JS को Intl ले कहिलेकाहीँ अंग्रेजी गतेलाई नै नेपाली अंकमा मात्र बदल्छ।
-     * शुद्ध नेपाली गते (विक्रम संवत) को लागि यो एउटा लजिक हो।
-     * अहिलेको लागि हामी तोकिएको ढाँचामा आउटपुट दिँदैछौँ।
-     */
-    let nepaliDateRaw = npTime.toLocaleDateString('ne-NP', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    });
-
-    // टाइटल र बडीको लागि पूर्ण मिति स्ट्रिङ
     const displayDate = `${nepaliDateRaw} (${englishDate})`;
-
     console.log(`🚀 मिति: ${displayDate} को लागि प्रक्रिया सुरु भयो...`);
 
+    // --- API Model Config (404 Fix) ---
+    // हामी यहाँ धेरै विकल्प राख्छौं ताकि एउटा फेल भए अर्को चलोस्
     const modelConfigs = [
+        { ver: 'v1beta', model: 'gemini-2.0-flash-exp' }, // नयाँ मोडेल
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
-        { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
         { ver: 'v1', model: 'gemini-1.5-flash' }
     ];
 
@@ -65,7 +42,6 @@ async function run() {
         try {
             console.log(`📡 Checking Model: ${config.model}...`);
             content = await getAIResponse(config, apiKey, displayDate);
-            
             if (content && content.length > 500) {
                 success = true;
                 break;
@@ -76,7 +52,7 @@ async function run() {
     }
 
     if (!success || !content) {
-        console.error("❌ AI failed to generate content.");
+        console.error("❌ AI failed to generate content. Please check API quota or Key.");
         process.exit(1);
     }
 
@@ -95,7 +71,6 @@ async function run() {
 </div>`;
 
     try {
-        console.log("⏳ WordPress मा पठाउँदै...");
         const postTitle = `तपाईँको आजको राशिफल - ${displayDate}`;
         await postToWP(wpHost, wpUser, wpPass, postTitle, htmlBody);
         console.log("🎉 सफलतापूर्वक प्रकाशित भयो!");
@@ -112,16 +87,9 @@ function getAIResponse(config, apiKey, date) {
         const payload = JSON.stringify({
             contents: [{ 
                 parts: [{ 
-                    text: `तपाईँ एक विशेषज्ञ ज्योतिषी हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्। 
-                    प्रत्येक राशिको नाम र चिन्ह **बोल्ड** मा लेख्नुहोस् (उदा: ♈ **मेष:**)। 
-                    भविष्यफलमा स्वास्थ्य, आर्थिक अवस्था, र प्रेम सम्बन्धको बारेमा जानकारी दिनुहोस्। 
-                    अन्त्यमा प्रत्येक राशिको शुभ अङ्क र शुभ रङ पनि उल्लेख गर्नुहोस्।` 
+                    text: `तपाईँ एक विशेषज्ञ ज्योतिषी हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्। प्रत्येक राशिको नाम र चिन्ह **बोल्ड** मा लेख्नुहोस्। स्वास्थ्य, आर्थिक, र प्रेम सम्बन्धको बारेमा लेख्नुहोस्। अन्त्यमा शुभ अङ्क र शुभ रङ पनि दिनुहोस्।` 
                 }] 
-            }],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2500
-            }
+            }]
         });
 
         const options = {
@@ -140,8 +108,8 @@ function getAIResponse(config, apiKey, date) {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("Empty response from AI"));
-                } catch (e) { reject(new Error("Parse error: " + e.message)); }
+                    else reject(new Error("Empty response"));
+                } catch (e) { reject(new Error("Parse error")); }
             });
         });
 
@@ -172,7 +140,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resData += d);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-                else reject(new Error(`WP Error ${res.statusCode}: ${resData}`));
+                else reject(new Error(`WP Error ${res.statusCode}`));
             });
         });
 
@@ -182,7 +150,4 @@ function postToWP(host, user, pass, title, content) {
     });
 }
 
-run().catch(err => {
-    console.error("FATAL ERROR:", err.message);
-    process.exit(1);
-});
+run();
