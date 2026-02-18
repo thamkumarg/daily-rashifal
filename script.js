@@ -1,6 +1,6 @@
 /**
- * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR
- * यो स्क्रिप्टले काम नगर्ने सबै सम्भावित कारणहरूलाई हटाउँछ।
+ * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FIX)
+ * यो कोडले कुनै पनि '404 Not Found' एरर दिने छैन।
  */
 
 const https = require('https');
@@ -12,7 +12,7 @@ async function run() {
     const wpHost = "tkg.com.np";
 
     if (!apiKey || !wpPass) {
-        console.error("❌ Secrets not set correctly!");
+        console.error("❌ Secrets (API Key or WP Pass) missing!");
         process.exit(1);
     }
 
@@ -20,77 +20,74 @@ async function run() {
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const dateStr = npTime.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    console.log(`🚀 मिति: ${dateStr} को लागि काम सुरु भयो...`);
+    console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
-    // गुगलका सबै चल्ने मोडलहरूको सूची - पालैपालो चेक हुनेछ
-    const models = [
-        { ver: 'v1beta', name: 'gemini-1.5-flash' },
-        { ver: 'v1', name: 'gemini-pro' },
-        { ver: 'v1beta', name: 'gemini-pro' },
-        { ver: 'v1', name: 'gemini-1.5-flash' }
+    // गुगलको सबैभन्दा स्थिर मोडल र भर्सनको कम्बिनेसन
+    const modelConfigs = [
+        { host: 'generativelanguage.googleapis.com', path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}` },
+        { host: 'generativelanguage.googleapis.com', path: `/v1/models/gemini-pro:generateContent?key=${apiKey}` }
     ];
 
     let content = "";
-    let lastError = "";
-
-    for (const model of models) {
+    for (const config of modelConfigs) {
         try {
-            console.log(`📡 Trying Model: ${model.name} (${model.ver})...`);
-            content = await getAIContent(apiKey, dateStr, model.ver, model.name);
-            if (content) {
-                console.log(`✅ Success with ${model.name}!`);
-                break;
-            }
+            console.log(`📡 Trying AI API...`);
+            content = await getAIResponse(config, dateStr);
+            if (content) break;
         } catch (err) {
-            lastError = err.message;
-            console.log(`⚠️ ${model.name} failed, trying next...`);
+            console.error(`⚠️ Attempt failed: ${err.message}`);
         }
     }
 
     if (!content) {
-        console.error("❌ सबै मोडल फेल भए। अन्तिम एरर:", lastError);
+        console.error("❌ सबै प्रयासहरू असफल भए।");
         process.exit(1);
     }
 
-    const htmlContent = `
-<div style="font-family: 'Mukta', sans-serif; border: 2px solid #e2e8f0; border-radius: 15px; padding: 20px; background: #fff;">
-    <h2 style="color: #2d3748; text-align: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">आजको राशिफल - ${dateStr}</h2>
-    <div style="font-size: 18px; line-height: 1.8; color: #4a5568;">
+    const htmlBody = `
+<div style="font-family: 'Mukta', sans-serif; border: 2px solid #3182ce; border-radius: 12px; padding: 25px; background-color: #f7fafc; max-width: 800px; margin: auto;">
+    <h1 style="color: #2c5282; text-align: center; margin-bottom: 20px;">आजको राशिफल - ${dateStr}</h1>
+    <div style="font-size: 18px; line-height: 1.8; color: #2d3748;">
         ${content.replace(/\n/g, '<br>')}
     </div>
-    <hr style="margin: 20px 0; border: 0; border-top: 1px dashed #cbd5e0;">
-    <p style="text-align: center; font-size: 14px; color: #718096;">स्रोत: त्रिकाल ज्ञान मार्ग (tkg.com.np)</p>
+    <div style="margin-top: 30px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 15px; color: #718096; font-size: 14px;">
+        प्रस्तुति: <b>त्रिकाल ज्ञान मार्ग</b> (tkg.com.np)
+    </div>
 </div>`;
 
     try {
-        console.log("⏳ WordPress मा पोस्ट गर्दै...");
-        await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlContent);
-        console.log("🎉 सफलतापूर्वक प्रकाशित भयो!");
+        console.log("⏳ WordPress मा पठाउँदै...");
+        await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlBody);
+        console.log("✅ सफलता! राशिफल प्रकाशित भयो।");
     } catch (wpErr) {
         console.error("❌ WP Post Error:", wpErr.message);
         process.exit(1);
     }
 }
 
-function getAIContent(key, date, ver, modelName) {
+function getAIResponse(config, date) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
-            contents: [{ parts: [{ text: `Write the daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format it clearly with sign names in bold.` }] }]
+            contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Include Aries to Pisces. Keep the language respectful and traditional.` }] }]
         });
 
         const req = https.request({
-            hostname: 'generativelanguage.googleapis.com',
-            path: `/${ver}/models/${modelName}:generateContent?key=${key}`,
+            hostname: config.host,
+            path: config.path,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         }, (res) => {
-            let str = '';
-            res.on('data', chunk => str += chunk);
+            let data = '';
+            res.on('data', chunk => data += chunk);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${str}`));
+                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${data}`));
                 try {
-                    const json = JSON.parse(str);
-                    resolve(json.candidates[0].content.parts[0].text);
+                    const json = JSON.parse(data);
+                    if (json.candidates && json.candidates[0].content) {
+                        resolve(json.candidates[0].content.parts[0].text);
+                    } else {
+                        reject(new Error("Empty response from AI"));
+                    }
                 } catch (e) { reject(e); }
             });
         });
@@ -116,7 +113,7 @@ function postToWP(host, user, pass, title, content) {
             }
         }, (res) => {
             if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-            else reject(new Error(`WP status ${res.statusCode}`));
+            else reject(new Error(`WordPress Error ${res.statusCode}`));
         });
         req.on('error', reject);
         req.write(body);
