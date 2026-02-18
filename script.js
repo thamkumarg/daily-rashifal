@@ -19,7 +19,7 @@ async function run() {
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // मिति: ७ फागुन २०८२ (Update this if needed for correct Nepali date logic)
+    // मिति: ७ फागुन २०८२
     const nepaliDateStr = "७ फागुन २०८२, बुधबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
@@ -55,22 +55,25 @@ async function run() {
 
 async function getAIContentWithFallback(key, date) {
     /**
-     * GitHub Actions मा ४०४ एरर आउनुको मुख्य कारण मोडलको नाम नमिल्नु हो।
-     * हामी यहाँ gemini-2.0-flash-exp (नयाँ) र अन्य विकल्पहरू प्रयास गर्छौँ।
+     * GitHub Actions मा ४०४ एरर आउनुको मुख्य कारण मोडलको नाम वा API Version नमिल्नु हो।
+     * हामी यहाँ विभिन्न कम्बिनेसनहरू प्रयास गर्छौँ।
      */
-    const configurations = [
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` }
+    const endpoints = [
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}`
     ];
 
     let lastError = "";
 
-    for (const config of configurations) {
-        const modelName = config.url.split('/models/')[1].split(':')[0];
+    for (const url of endpoints) {
+        const label = url.includes('v1beta') ? 'v1beta' : 'v1';
+        const model = url.split('/models/')[1].split(':')[0];
+        
         try {
-            console.log(`🤖 Requesting Model: ${modelName}...`);
-            const result = await makeRequest(config.url, {
+            console.log(`🤖 Requesting: ${model} (${label})...`);
+            const result = await makeRequest(url, {
                 contents: [{ parts: [{ text: `Write a very detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format with bold names and icons like ♈ **मेष:**. Include lucky numbers and colors for each sign.` }] }],
                 safetySettings: [
                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -82,28 +85,27 @@ async function getAIContentWithFallback(key, date) {
             
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text && text.length > 400) {
-                console.log(`✨ Success with ${modelName}!`);
+                console.log(`✨ Success!`);
                 return text;
             }
-            console.warn(`⚠️ ${modelName} provided empty or short response.`);
+            console.warn(`⚠️ Empty response from ${model}`);
         } catch (e) {
             lastError = e.message;
-            console.warn(`❌ ${modelName} failed: ${e.message.substring(0, 150)}`);
+            console.warn(`❌ Failed: ${e.message.substring(0, 100)}`);
         }
     }
     
-    throw new Error(`CRITICAL: All AI endpoints returned 404 or errors. Please:
-    1. Check if 'Generative Language API' is enabled in Google Cloud Console.
-    2. Try creating a NEW API Key.
-    3. Ensure your API Key has no IP/Region restrictions.
-    Last error recorded: ${lastError}`);
+    throw new Error(`CRITICAL: All Gemini API attempts failed. Error: ${lastError}`);
 }
 
 function makeRequest(apiUrl, payload) {
     return new Promise((resolve, reject) => {
         const req = https.request(apiUrl, { 
             method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'User-Agent': 'TKG-Rashifal-Bot/1.0'
+            },
             timeout: 45000 
         }, (res) => {
             let data = '';
