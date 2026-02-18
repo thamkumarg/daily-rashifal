@@ -26,16 +26,21 @@ async function run() {
 
     console.log(`🚀 मिति: ${fullDateDisplay} को लागि काम सुरु भयो...`);
 
-    // --- API Configuration Strategy (404 Fix) ---
-    // धेरै भर्सन र मोडेल नामहरू प्रयास गर्ने - यसले कुनै न कुनै एउटा काम गर्ने निश्चित गर्छ
+    /**
+     * API Strategy: 
+     * धेरैजसो ४०४ एरर मोडेलको नाम नमिल्दा आउँछ। 
+     * हामी पुरानो 'gemini-pro' बाट सुरु गर्छौँ जुन प्राय सबै Key मा चल्छ।
+     */
     const configs = [
-        { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
+        { ver: 'v1beta', model: 'gemini-pro' },
+        { ver: 'v1', model: 'gemini-pro' },
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
-        { ver: 'v1', model: 'gemini-1.5-flash' },
-        { ver: 'v1beta', model: 'gemini-pro' }
+        { ver: 'v1', model: 'gemini-1.5-flash' }
     ];
 
     let content = "";
+    let lastError = "";
+
     for (const config of configs) {
         try {
             console.log(`📡 Trying: ${config.ver} with ${config.model}...`);
@@ -45,12 +50,15 @@ async function run() {
                 break;
             }
         } catch (err) {
-            console.log(`⚠️ Attempt failed for ${config.model}: ${err.message}`);
+            lastError = err.message;
+            console.log(`⚠️ ${config.model} failed: ${err.message}`);
         }
     }
 
     if (!content) {
-        console.error("❌ सबै प्रयासहरू असफल भए। यो तपाईँको API Key को समस्या हुन सक्छ।");
+        console.error("❌ सबै मोडेलहरू फेल भए। अन्तिम एरर संदेश:");
+        console.error(lastError);
+        console.log("\n💡 सुझाव: यदि सबै ४०४ आउँछ भने, Google AI Studio (aistudio.google.com) मा गएर नयाँ API Key बनाउनुहोस्।");
         process.exit(1);
     }
 
@@ -93,8 +101,7 @@ function getAIResponse(version, model, key, date) {
             path: `/${version}/models/${model}:generateContent?key=${key}`,
             method: 'POST',
             headers: { 
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload)
+                'Content-Type': 'application/json'
             }
         };
 
@@ -102,7 +109,9 @@ function getAIResponse(version, model, key, date) {
             let data = '';
             res.on('data', d => data += d);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                if (res.statusCode !== 200) {
+                    return reject(new Error(`API Error ${res.statusCode}: ${data.substring(0, 100)}`));
+                }
                 try {
                     const result = JSON.parse(data);
                     const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -142,7 +151,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resBody += d);
             res.on('end', () => {
                 if (res.statusCode === 201) resolve();
-                else reject(new Error(`WP API Error ${res.statusCode}: ${resBody}`));
+                else reject(new Error(`WP API Error ${res.statusCode}`));
             });
         });
 
