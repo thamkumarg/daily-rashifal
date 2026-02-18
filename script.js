@@ -1,6 +1,7 @@
 /**
- * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FIX)
- * यो कोडले कुनै पनि '404 Not Found' एरर दिने छैन।
+ * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FINAL FIX)
+ * यो कोडले ३ वटा फरक-फरक मोडल र भर्सनहरू पालैपालो चेक गर्छ।
+ * कुनै एउटा ४०४ भएमा अर्कोले काम गर्नेछ।
  */
 
 const https = require('https');
@@ -22,25 +23,32 @@ async function run() {
 
     console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
-    // गुगलको सबैभन्दा स्थिर मोडल र भर्सनको कम्बिनेसन
+    // गुगलको सबैभन्दा स्थिर र नयाँ मोडलहरूको कम्बिनेसन
+    // मोडल नामहरूलाई सुधारेर 'models/' प्रिफिक्स स्पष्ट पारिएको छ
     const modelConfigs = [
+        { host: 'generativelanguage.googleapis.com', path: `/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}` },
         { host: 'generativelanguage.googleapis.com', path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}` },
         { host: 'generativelanguage.googleapis.com', path: `/v1/models/gemini-pro:generateContent?key=${apiKey}` }
     ];
 
     let content = "";
+    let success = false;
+
     for (const config of modelConfigs) {
         try {
-            console.log(`📡 Trying AI API...`);
+            console.log(`📡 Trying AI API Path: ${config.path.split('?')[0]}...`);
             content = await getAIResponse(config, dateStr);
-            if (content) break;
+            if (content) {
+                success = true;
+                break;
+            }
         } catch (err) {
-            console.error(`⚠️ Attempt failed: ${err.message}`);
+            console.error(`⚠️ Attempt failed for this model. Error: ${err.message}`);
         }
     }
 
-    if (!content) {
-        console.error("❌ सबै प्रयासहरू असफल भए।");
+    if (!success || !content) {
+        console.error("❌ सबै एआई मोडलहरू र भर्सनहरू असफल भए।");
         process.exit(1);
     }
 
@@ -68,7 +76,7 @@ async function run() {
 function getAIResponse(config, date) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
-            contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Include Aries to Pisces. Keep the language respectful and traditional.` }] }]
+            contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format each zodiac sign name in bold like **Mesh:**` }] }]
         });
 
         const req = https.request({
@@ -80,7 +88,7 @@ function getAIResponse(config, date) {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${data}`));
+                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}`));
                 try {
                     const json = JSON.parse(data);
                     if (json.candidates && json.candidates[0].content) {
