@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE FIX
- * Fixes the 404 NOT_FOUND error by trying multiple stable and beta endpoints.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION
+ * This version uses improved fallback logic and safety settings to prevent 404 and content blocking.
  */
 
 const https = require('https');
@@ -18,7 +18,7 @@ async function run() {
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // मिति: ६ फागुन २०८२ (फेब्रुअरी १८, २०२६)
+    // मिति: ६ फागुन २०८२
     const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
@@ -53,28 +53,34 @@ async function run() {
 }
 
 async function getAIContentWithFallback(key, date) {
-    // ४०४ एरर हटाउन ३ वटा फरक विकल्पहरू
+    // ४०४ एरर र 'Model not found' समस्या समाधानका लागि विकल्पहरू
     const configurations = [
-        { version: 'v1', model: 'gemini-1.5-flash' },      // Stable Path
-        { version: 'v1beta', model: 'gemini-1.5-flash' },  // Beta Path
-        { version: 'v1', model: 'gemini-pro' }            // Legacy Stable Path
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` },
+        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` },
+        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}` }
     ];
 
     for (const config of configurations) {
         try {
-            console.log(`🤖 Requesting: ${config.model} (${config.version})...`);
-            const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:generateContent?key=${key}`;
-            const result = await makeRequest(url, {
-                contents: [{ parts: [{ text: `Write detailed daily horoscope for 12 zodiac signs in Nepali for today (${date}). Use bold zodiac names.` }] }]
+            console.log(`🤖 Attempting API: ${config.url.split('/models/')[1].split(':')[0]}...`);
+            const result = await makeRequest(config.url, {
+                contents: [{ parts: [{ text: `Write a very detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format with bold names and icons like ♈ **मेष:**. Include lucky numbers and colors.` }] }],
+                safetySettings: [
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                ]
             });
             
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (text && text.length > 300) return text;
+            else console.warn("⚠️ Response was too short or empty, trying next...");
         } catch (e) {
-            console.warn(`⚠️ Path ${config.version} failed: ${e.message.substring(0, 50)}`);
+            console.warn(`⚠️ Attempt failed for ${config.url.split('models/')[1].split('?')[0]}: ${e.message.substring(0, 60)}`);
         }
     }
-    throw new Error("All AI endpoints failed. Check API Key or Billing.");
+    throw new Error("All AI endpoints failed. Possible issues: Invalid API Key, Regional restriction, or Billing status.");
 }
 
 function makeRequest(apiUrl, payload) {
