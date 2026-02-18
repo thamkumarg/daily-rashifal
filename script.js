@@ -37,42 +37,42 @@ async function run() {
         // STEP 2: Generate Horoscope Content
         const rawContent = await generateAIContent(apiKey, selectedModel, fullDateDisplay);
         
-        // Premium UI Formatting
+        // Premium UI Formatting based on User Preference
         const htmlBody = `
-<div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid #eee;">
-    <!-- Header Banner -->
-    <div style="background: #b71c1c; padding: 30px 15px; text-align: center; color: white; border-bottom: 5px solid #ffca28;">
-        <h1 style="margin: 0; font-size: 32px; letter-spacing: 1px;">🕉️ आजको राशिफल</h1>
-        <p style="margin: 5px 0 0; font-size: 18px; font-weight: 300;">${fullDateDisplay}</p>
+<div style="font-family: 'Mukta', serif; max-width: 800px; margin: auto; background-color: #fdf5e6; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 2px solid #d4af37;">
+    <!-- Header Banner - Dark Maroon with Gold accent -->
+    <div style="background: #800000; padding: 40px 20px; text-align: center; color: #ffca28; border-bottom: 4px double #d4af37;">
+        <h1 style="margin: 0; font-size: 38px; font-weight: bold; text-shadow: 1px 1px 2px #000;">🕉️ आजको राशिफल</h1>
+        <p style="margin: 10px 0 0; font-size: 20px; color: #fff; font-weight: normal;">${fullDateDisplay}</p>
     </div>
 
-    <div style="padding: 25px; background: #fffcf7;">
-        <div style="font-size: 18px; line-height: 1.8; color: #333;">
+    <div style="padding: 30px; background: #fffdf9;">
+        <div style="font-size: 19px; line-height: 1.9; color: #1a1a1a;">
             ${rawContent.split('\n').map(line => {
                 const trimmed = line.trim();
                 if (!trimmed) return '';
                 
-                // Styling the Zodiac Signs as separate prominent cards
+                // Styling the Zodiac Signs as per the image theme
                 if (trimmed.match(/^[♈♉♊♋♌♍♎♏♐♑♒♓]/)) {
                     return `
-                    <div style="background: white; border: 1px solid #ffe0b2; border-radius: 12px; margin: 20px 0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
-                        <div style="background: #fff8e1; padding: 10px 20px; border-bottom: 1px solid #ffe0b2; color: #d32f2f; font-size: 22px; font-weight: bold;">
+                    <div style="background: white; border: 1px solid #d4af37; border-radius: 10px; margin: 25px 0; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <div style="background: #800000; padding: 12px 20px; color: #ffca28; font-size: 24px; font-weight: bold; border-bottom: 2px solid #d4af37;">
                             ${trimmed.split(':')[0]}
                         </div>
-                        <div style="padding: 15px 20px; color: #444; text-align: justify;">
+                        <div style="padding: 20px; color: #333; text-align: justify; font-family: 'Mukta', sans-serif;">
                             ${trimmed.split(':').slice(1).join(':').trim()}
                         </div>
                     </div>`;
                 }
-                return `<p style="margin-bottom: 15px;">${trimmed}</p>`;
+                return `<p style="margin-bottom: 15px; text-align: center; color: #5d4037; font-weight: bold;">${trimmed}</p>`;
             }).join('')}
         </div>
     </div>
 
     <!-- Footer Credit -->
-    <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee; color: #666;">
-        <p style="margin: 0; font-size: 16px;"><b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
-        <p style="margin: 5px 0 0; font-size: 13px;">तपाईँको दिन शुभ रहोस् ।</p>
+    <div style="background: #800000; padding: 20px; text-align: center; border-top: 3px solid #d4af37; color: #fff;">
+        <p style="margin: 0; font-size: 18px; color: #ffca28;"><b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.8;">आध्यात्मिक चिन्तन र ज्योतिषिय विश्लेषण</p>
     </div>
 </div>`;
 
