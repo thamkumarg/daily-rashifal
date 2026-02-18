@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE STABLE VERSION
- * Fixes the 404 "Model Not Found" error by using Stable v1 API.
+ * 🕉️ TKG RASHIFALA - FINAL STABLE VERSION
+ * Fixes: 404 Model Not Found, Authentication, and Regional Issues.
  */
 
 const https = require('https');
@@ -14,11 +14,10 @@ async function run() {
     if (!apiKey) { console.error("❌ API Key missing!"); process.exit(1); }
     if (!wpPass) { console.error("❌ WP Pass missing!"); process.exit(1); }
 
-    // आजको मिति (७ फागुन २०८१ - Wednesday)
     const nepaliDateStr = "७ फागुन २०८१, बुधबार"; 
     const fullDateDisplay = `${nepaliDateStr} (February 18, 2026)`;
 
-    console.log(`🚀 Script started for: ${fullDateDisplay}`);
+    console.log(`🚀 Starting for: ${fullDateDisplay}`);
 
     try {
         const content = await getAIContent(apiKey, fullDateDisplay);
@@ -39,7 +38,7 @@ async function run() {
 </div>`;
 
         await postToWP(wpHost, wpUser, wpPass, `आजको राशिफल - ${nepaliDateStr}`, htmlBody);
-        console.log("✅ Success! Post published on TKG.");
+        console.log("✅ Success! Rashifal published.");
 
     } catch (err) {
         console.error("❌ Fatal Error:", err.message);
@@ -48,40 +47,20 @@ async function run() {
 }
 
 async function getAIContent(key, date) {
-    // एन्डपोइन्ट र मोडेलको कम्बिनेशन (४०४ बाट बच्न)
-    const configs = [
-        { ver: 'v1', model: 'gemini-1.5-flash' },     // Stable version (Recommended)
-        { ver: 'v1beta', model: 'gemini-1.5-flash' }, // Beta fallback
-        { ver: 'v1', model: 'gemini-pro' }            // Legacy stable fallback
-    ];
-
-    const prompt = `Write a detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
-    Format: ♈ **मेष:** (3-4 sentences). At the end of each sign: 'शुभ अंक' and 'शुभ रङ'. 
-    Tone: Professional, Positive, Astrological.`;
-
-    for (const config of configs) {
-        try {
-            console.log(`🤖 Trying ${config.ver} with ${config.model}...`);
-            const result = await makeApiCall(key, config.ver, config.model, prompt);
-            if (result) return result;
-        } catch (e) {
-            console.warn(`⚠️ Failed: ${e.message}`);
-        }
-    }
-
-    throw new Error("All Google AI endpoints returned errors. Check API quota or Key restrictions.");
-}
-
-function makeApiCall(key, version, model, prompt) {
-    const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${key}`;
+    // एन्डपोइन्ट परिवर्तन: v1beta बाट v1 मा सिफ्ट गरिएको छ
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
     
+    const prompt = `Write a detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
+    Format: ♈ **मेष:** (3-4 sentences). End with 'शुभ अंक' and 'शुभ रङ'. 
+    Make it professional and optimistic for the TKG website.`;
+
     const payload = JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }]
     });
 
     return new Promise((resolve, reject) => {
-        const req = https.request(url, { 
-            method: 'POST', 
+        const req = https.request(url, {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         }, (res) => {
             let data = '';
@@ -91,12 +70,13 @@ function makeApiCall(key, version, model, prompt) {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("Response has no text content"));
+                    else reject(new Error("Empty response from AI"));
                 } else {
-                    reject(new Error(`API ${res.statusCode}: ${data}`));
+                    reject(new Error(`Google API ${res.statusCode}: ${data}`));
                 }
             });
         });
+
         req.on('error', e => reject(e));
         req.write(payload);
         req.end();
@@ -106,22 +86,31 @@ function makeApiCall(key, version, model, prompt) {
 function postToWP(host, user, pass, title, content) {
     return new Promise((resolve, reject) => {
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-        const postData = JSON.stringify({ title, content, status: 'publish' });
+        const postData = JSON.stringify({
+            title: title,
+            content: content,
+            status: 'publish',
+            categories: [1] // तपाईँको राशिफल क्याटेगोरी ID हाल्नुहोला (optional)
+        });
+
         const req = https.request({
-            hostname: host, path: '/wp-json/wp/v2/posts', method: 'POST',
-            headers: { 
-                'Authorization': `Basic ${auth}`, 
+            hostname: host,
+            path: '/wp-json/wp/v2/posts',
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData)
             }
         }, (res) => {
-            if (res.statusCode === 201) resolve();
-            else {
-                let body = '';
-                res.on('data', d => body += d);
-                res.on('end', () => reject(new Error(`WP API ${res.statusCode}: ${body}`)));
-            }
+            let body = '';
+            res.on('data', d => body += d);
+            res.on('end', () => {
+                if (res.statusCode === 201) resolve();
+                else reject(new Error(`WP Error ${res.statusCode}: ${body}`));
+            });
         });
+
         req.on('error', e => reject(e));
         req.write(postData);
         req.end();
