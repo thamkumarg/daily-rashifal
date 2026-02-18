@@ -19,7 +19,7 @@ async function run() {
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // मिति सेटिङ
+    // मिति सेटिङ (आजको वास्तविक मिति)
     const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
@@ -58,25 +58,29 @@ async function run() {
 async function getAIContent(key, date) {
     // 404 समस्या समाधान गर्न ३ वटा फरक विकल्पहरू
     const configurations = [
+        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}` },
         { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}` }
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` }
     ];
 
     for (const config of configurations) {
         try {
-            console.log(`🤖 Attempting API: ${config.url.split('/models/')[1].split(':')[0]}...`);
+            const modelName = config.url.split('/models/')[1].split(':')[0];
+            console.log(`🤖 Attempting API: ${modelName}...`);
             const response = await makeRequest(config.url, {
-                contents: [{ parts: [{ text: `Write daily horoscope for 12 zodiac signs in Nepali for ${date}. Format with bold names.` }] }]
+                contents: [{ parts: [{ text: `Write daily horoscope for 12 zodiac signs in Nepali for ${date}. Format with bold names like "♈ **मेष:**".` }] }]
             });
             
             const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text && text.length > 200) return text;
+            if (text && text.length > 200) {
+                console.log(`✅ Success with ${modelName}`);
+                return text;
+            }
         } catch (e) {
-            console.warn(`⚠️ Failed: ${e.message}`);
+            console.warn(`⚠️ Failed with current endpoint: ${e.message}`);
         }
     }
-    throw new Error("All AI endpoints failed. Check if API Key is valid and Billing/Quotas are active.");
+    throw new Error("All AI endpoints (v1 and v1beta) failed. Please check if your API key has expired or quota is exceeded.");
 }
 
 function makeRequest(apiUrl, payload) {
