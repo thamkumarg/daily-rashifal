@@ -26,8 +26,7 @@ async function run() {
     const modelConfigs = [
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
         { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
-        { ver: 'v1', model: 'gemini-1.5-flash' },
-        { ver: 'v1beta', model: 'gemini-pro' }
+        { ver: 'v1', model: 'gemini-1.5-flash' }
     ];
 
     let content = "";
@@ -78,25 +77,18 @@ function getAIResponse(config, apiKey, date) {
     return new Promise((resolve, reject) => {
         const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
         
-        // Revised Payload Structure for high success rate
+        // Using the most basic and reliable payload structure
         const payload = JSON.stringify({
             contents: [{ 
-                role: "user",
                 parts: [{ 
-                    text: `आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल लेख्नुहोस्। 
-                    हरेक राशिको नाम सुरुमा बोल्डमा लेख्नुहोस् (उदा: **मेष:**)। 
-                    त्यसपछि स्वास्थ्य, आर्थिक र पारिवारिक सम्बन्धको बारेमा भविष्यवाणी समावेश गर्नुहोस्। 
-                    अन्त्यमा प्रत्येक राशिको शुभ रङ र शुभ अंक पनि राख्नुहोस्।` 
+                    text: `तपाईँ एक विशेषज्ञ ज्योतिषी हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल लेख्नुहोस्। 
+                    प्रत्येक राशिको नाम सुरुमा बोल्डमा लेख्नुहोस् (उदा: **मेष:**)। 
+                    स्वास्थ्य, आर्थिक र पारिवारिक सम्बन्धको भविष्यवाणी र शुभ अंक/रङ समावेश गर्नुहोस्।` 
                 }] 
             }],
-            systemInstruction: {
-                parts: [{ text: "तपाईँ एक अनुभवी वैदिक ज्योतिषी हुनुहुन्छ जो सधैं नेपाली भाषामा स्पष्ट र सटीक राशिफल प्रदान गर्नुहुन्छ।" }]
-            },
             generationConfig: {
-                temperature: 0.8,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 2500,
+                temperature: 0.7,
+                maxOutputTokens: 2000
             }
         });
 
@@ -114,23 +106,20 @@ function getAIResponse(config, apiKey, date) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode !== 200) {
-                    return reject(new Error(`HTTP ${res.statusCode}: ${data.substring(0, 150)}`));
+                    return reject(new Error(`HTTP ${res.statusCode}: ${data.substring(0, 100)}`));
                 }
                 try {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) {
-                        resolve(text);
-                    } else {
-                        reject(new Error("Empty response content from AI"));
-                    }
+                    if (text) resolve(text);
+                    else reject(new Error("No text in AI response"));
                 } catch (e) {
-                    reject(new Error("JSON Parse Error: " + e.message));
+                    reject(new Error("JSON Parse Error"));
                 }
             });
         });
 
-        req.on('error', (err) => reject(new Error("Request Error: " + err.message)));
+        req.on('error', reject);
         req.write(payload);
         req.end();
     });
@@ -160,15 +149,12 @@ function postToWP(host, user, pass, title, content) {
             let resData = '';
             res.on('data', d => resData += d);
             res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
-                    resolve();
-                } else {
-                    reject(new Error(`WP status ${res.statusCode}: ${resData.substring(0, 100)}`));
-                }
+                if (res.statusCode >= 200 && res.statusCode < 300) resolve();
+                else reject(new Error(`WP status ${res.statusCode}: ${resData.substring(0, 100)}`));
             });
         });
 
-        req.on('error', (err) => reject(new Error("WP Request Error: " + err.message)));
+        req.on('error', reject);
         req.write(body);
         req.end();
     });
