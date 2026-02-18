@@ -1,7 +1,6 @@
 /**
  * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FINAL FIX)
- * यो कोडले ६ वटा फरक-फरक मोडल र भर्सनहरू पालैपालो चेक गर्छ।
- * कुनै एउटा ४०४ वा एरर भएमा तुरुन्तै अर्कोमा स्विच हुनेछ।
+ * This script handles multiple model fallbacks and optimized payload structure.
  */
 
 const https = require('https');
@@ -23,27 +22,21 @@ async function run() {
 
     console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
-    // गुगलका सबै चल्न सक्ने सम्भावित बाटोहरूको सुची
-    // केही भर्सनमा 'models/' अगाडि '/' चाहिन्छ, केहीमा चाहिँदैन, त्यसैले path निर्माणमा ध्यान दिइएको छ
+    // Array of potential model configurations to try
     const modelConfigs = [
-        { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
+        { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
         { ver: 'v1', model: 'gemini-1.5-flash' },
-        { ver: 'v1beta', model: 'gemini-pro' },
-        { ver: 'v1', model: 'gemini-pro' },
-        { ver: 'v1', model: 'gemini-1.0-pro' }
+        { ver: 'v1beta', model: 'gemini-pro' }
     ];
 
     let content = "";
     let success = false;
-    let errorLog = "";
 
     for (const config of modelConfigs) {
         try {
-            const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
-            console.log(`📡 Checking: ${config.model} (${config.ver})...`);
-            
-            content = await getAIResponse(apiPath, dateStr);
+            console.log(`📡 Checking Model: ${config.model} (${config.ver})...`);
+            content = await getAIResponse(config, apiKey, dateStr);
             
             if (content) {
                 console.log(`✅ Success with ${config.model}!`);
@@ -51,17 +44,15 @@ async function run() {
                 break;
             }
         } catch (err) {
-            errorLog += `[${config.model}]: ${err.message} | `;
-            console.log(`⚠️ ${config.model} failed, skipping...`);
+            console.error(`⚠️ ${config.model} failed. Reason: ${err.message}`);
         }
     }
 
     if (!success || !content) {
-        console.error("❌ सबै प्रयासहरू असफल भए। लगहरू:", errorLog);
+        console.error("❌ All AI models failed. Please check your Gemini API Key billing/quota.");
         process.exit(1);
     }
 
-    // HTML Content Formatting
     const htmlBody = `
 <div style="font-family: 'Mukta', sans-serif; border: 2px solid #3182ce; border-radius: 12px; padding: 25px; background-color: #f7fafc; max-width: 800px; margin: auto;">
     <h1 style="color: #2c5282; text-align: center; margin-bottom: 20px;">आजको राशिफल - ${dateStr}</h1>
@@ -76,28 +67,42 @@ async function run() {
     try {
         console.log("⏳ WordPress मा पठाउँदै...");
         await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlBody);
-        console.log("🎉 बधाई छ! सफलता पूर्वक प्रकाशित भयो।");
+        console.log("🎉 बधाई छ! सफलतापूर्वक प्रकाशित भयो।");
     } catch (wpErr) {
         console.error("❌ WP Post Error:", wpErr.message);
         process.exit(1);
     }
 }
 
-function getAIResponse(path, date) {
+function getAIResponse(config, apiKey, date) {
     return new Promise((resolve, reject) => {
+        const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
+        
+        // Revised Payload Structure for high success rate
         const payload = JSON.stringify({
             contents: [{ 
+                role: "user",
                 parts: [{ 
-                    text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. 
-                    Format each zodiac sign name in bold like **Mesh:**. 
-                    Include predictions for health, wealth, and career.` 
+                    text: `आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल लेख्नुहोस्। 
+                    हरेक राशिको नाम सुरुमा बोल्डमा लेख्नुहोस् (उदा: **मेष:**)। 
+                    त्यसपछि स्वास्थ्य, आर्थिक र पारिवारिक सम्बन्धको बारेमा भविष्यवाणी समावेश गर्नुहोस्। 
+                    अन्त्यमा प्रत्येक राशिको शुभ रङ र शुभ अंक पनि राख्नुहोस्।` 
                 }] 
-            }]
+            }],
+            systemInstruction: {
+                parts: [{ text: "तपाईँ एक अनुभवी वैदिक ज्योतिषी हुनुहुन्छ जो सधैं नेपाली भाषामा स्पष्ट र सटीक राशिफल प्रदान गर्नुहुन्छ।" }]
+            },
+            generationConfig: {
+                temperature: 0.8,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 2500,
+            }
         });
 
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: path,
+            path: apiPath,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -106,25 +111,26 @@ function getAIResponse(path, date) {
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', (chunk) => { data += chunk; });
+            res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode !== 200) {
-                    return reject(new Error(`Status ${res.statusCode}: ${data}`));
+                    return reject(new Error(`HTTP ${res.statusCode}: ${data.substring(0, 150)}`));
                 }
                 try {
                     const json = JSON.parse(data);
-                    if (json.candidates && json.candidates[0].content && json.candidates[0].content.parts) {
-                        resolve(json.candidates[0].content.parts[0].text);
+                    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        resolve(text);
                     } else {
-                        reject(new Error("AI returned an unexpected format."));
+                        reject(new Error("Empty response content from AI"));
                     }
                 } catch (e) {
-                    reject(new Error("JSON Parse Error"));
+                    reject(new Error("JSON Parse Error: " + e.message));
                 }
             });
         });
 
-        req.on('error', (e) => reject(e));
+        req.on('error', (err) => reject(new Error("Request Error: " + err.message)));
         req.write(payload);
         req.end();
     });
@@ -152,24 +158,23 @@ function postToWP(host, user, pass, title, content) {
 
         const req = https.request(options, (res) => {
             let resData = '';
-            res.on('data', (d) => { resData += d; });
+            res.on('data', d => resData += d);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) {
                     resolve();
                 } else {
-                    reject(new Error(`WP status ${res.statusCode}: ${resData}`));
+                    reject(new Error(`WP status ${res.statusCode}: ${resData.substring(0, 100)}`));
                 }
             });
         });
 
-        req.on('error', (e) => reject(e));
+        req.on('error', (err) => reject(new Error("WP Request Error: " + err.message)));
         req.write(body);
         req.end();
     });
 }
 
-// प्रक्रिया सुरु गर्ने
 run().catch(err => {
-    console.error("Fatal Error:", err);
+    console.error("Critical Failure:", err);
     process.exit(1);
 });
