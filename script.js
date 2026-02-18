@@ -38,7 +38,7 @@ async function run() {
 
     const nepaliFullDate = getNepaliDate(targetDate);
     
-    // प्रदर्शनको लागि: "बुधबार, फागुन ७, २०८२" (अङ्ग्रेजी हटाइएको छ)
+    // प्रदर्शनको लागि: "बुधबार, फागुन ७, २०८२"
     const fullDateDisplay = `${dayName}, ${nepaliFullDate}`;
 
     console.log(`🚀 Task Started for: ${fullDateDisplay}`);
@@ -67,14 +67,25 @@ async function run() {
             ${rawContent.split('\n').map(line => {
                 const trimmed = line.trim();
                 if (!trimmed) return '';
+                
+                // राशि चिन्हबाट सुरु हुने लाइन फेला पार्ने
                 if (trimmed.match(/^[♈♉♊♋♌♍♎♏♐♑♒♓]/)) {
+                    const parts = trimmed.split(':');
+                    const rashiTitle = parts[0].trim();
+                    let rashiDesc = parts.slice(1).join(':').trim();
+
+                    // शुभ रङ र अंकलाई छुट्टै स्टाइल दिन 'Split' गर्ने प्रयास
+                    // AI ले "शुभ रङ: रातो, शुभ अंक: ५" भनेर पठाउँछ भन्ने अनुमानमा
+                    rashiDesc = rashiDesc.replace(/(शुभ रङ[:\s]+[^\s,]+)/g, '<br><span style="color:#800000; font-weight:bold; font-size:16px;">🎨 $1</span>');
+                    rashiDesc = rashiDesc.replace(/(शुभ अंक[:\s]+[^\s,]+)/g, '<span style="color:#800000; font-weight:bold; font-size:16px; margin-left:15px;">🔢 $1</span>');
+
                     return `
                     <div style="background: white; border: 1px solid #d4af37; border-radius: 10px; margin: 25px 0; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                         <div style="background: #800000; padding: 12px 20px; color: #ffca28; font-size: 24px; font-weight: bold; border-bottom: 2px solid #d4af37;">
-                            ${trimmed.split(':')[0]}
+                            ${rashiTitle}
                         </div>
                         <div style="padding: 20px; color: #333; text-align: justify;">
-                            ${trimmed.split(':').slice(1).join(':').trim()}
+                            ${rashiDesc}
                         </div>
                     </div>`;
                 }
@@ -122,7 +133,7 @@ async function generateAIContent(key, modelPath, date) {
             parts: [{
                 text: `Write a detailed daily horoscope in Nepali for all 12 zodiac signs for ${date}. 
                 Format: Each sign MUST start with its emoji and name in this format "♈ मेष: [description]". 
-                Inside description, include: Prediction, शुभ रङ, and शुभ अंक. 
+                Inside description, at the end, MUST include: "शुभ रङ: [color]" and "शुभ अंक: [number]". 
                 Tone: Spiritual and positive. Do not use markdown backticks.`
             }]
         }]
