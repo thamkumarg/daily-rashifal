@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - STABLE PRODUCTION VERSION
- * Fixes the 404/NOT_FOUND issue by prioritizing stable 'v1' endpoints and gemini-pro.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE FIX
+ * Fixes the 404 NOT_FOUND error by trying multiple stable and beta endpoints.
  */
 
 const https = require('https');
@@ -8,7 +8,7 @@ const https = require('https');
 async function run() {
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     const wpPass = (process.env.WP_PASS || "").trim();
-    const wpUser = process.env.WP_USER || "trikal";
+    const wpUser = "trikal";
     const wpHost = "tkg.com.np";
 
     if (!apiKey) { console.error("❌ GEMINI_API_KEY is missing!"); process.exit(1); }
@@ -26,7 +26,7 @@ async function run() {
     console.log(`🚀 Task Started for: ${fullDateDisplay}`);
 
     try {
-        const content = await getAIContent(apiKey, fullDateDisplay);
+        const content = await getAIContentWithFallback(apiKey, fullDateDisplay);
         
         const htmlBody = `
 <div style="font-family: 'Mukta', sans-serif; border: 2px solid #e53e3e; border-radius: 15px; padding: 25px; background-color: #fffaf0; max-width: 800px; margin: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
@@ -44,35 +44,37 @@ async function run() {
 </div>`;
 
         await postToWP(wpHost, wpUser, wpPass, `आजको राशिफल - ${nepaliDateStr}`, htmlBody);
-        console.log("✅ Successfully published!");
+        console.log("✅ Successfully published to WordPress!");
 
     } catch (err) {
-        console.error("❌ Fatal Error:", err.message);
+        console.error("❌ Fatal Script Error:", err.message);
         process.exit(1);
     }
 }
 
-async function getAIContent(key, date) {
+async function getAIContentWithFallback(key, date) {
+    // ४०४ एरर हटाउन ३ वटा फरक विकल्पहरू
     const configurations = [
-        { version: 'v1', model: 'gemini-1.5-flash' },
-        { version: 'v1beta', model: 'gemini-1.5-flash' },
-        { version: 'v1', model: 'gemini-pro' }
+        { version: 'v1', model: 'gemini-1.5-flash' },      // Stable Path
+        { version: 'v1beta', model: 'gemini-1.5-flash' },  // Beta Path
+        { version: 'v1', model: 'gemini-pro' }            // Legacy Stable Path
     ];
 
     for (const config of configurations) {
         try {
-            console.log(`🤖 Attempting ${config.model} (${config.version})...`);
+            console.log(`🤖 Requesting: ${config.model} (${config.version})...`);
             const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:generateContent?key=${key}`;
-            const response = await makeRequest(url, {
-                contents: [{ parts: [{ text: `Write daily horoscope for 12 zodiac signs in Nepali for ${date}. Format with bold names.` }] }]
+            const result = await makeRequest(url, {
+                contents: [{ parts: [{ text: `Write detailed daily horoscope for 12 zodiac signs in Nepali for today (${date}). Use bold zodiac names.` }] }]
             });
-            const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) return text;
+            
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.length > 300) return text;
         } catch (e) {
-            console.warn(`⚠️ Failed path: ${config.version}/${config.model}`);
+            console.warn(`⚠️ Path ${config.version} failed: ${e.message.substring(0, 50)}`);
         }
     }
-    throw new Error("All endpoints failed. Check API key/quota.");
+    throw new Error("All AI endpoints failed. Check API Key or Billing.");
 }
 
 function makeRequest(apiUrl, payload) {
@@ -80,7 +82,13 @@ function makeRequest(apiUrl, payload) {
         const req = https.request(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
             let data = '';
             res.on('data', d => data += d);
-            res.on('end', () => res.statusCode === 200 ? resolve(JSON.parse(data)) : reject(new Error(res.statusCode)));
+            res.on('end', () => {
+                if (res.statusCode === 200) {
+                    try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+                } else {
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                }
+            });
         });
         req.on('error', reject);
         req.write(JSON.stringify(payload));
@@ -94,8 +102,19 @@ function postToWP(host, user, pass, title, content) {
         const postData = JSON.stringify({ title, content, status: 'publish' });
         const req = https.request({
             hostname: host, path: '/wp-json/wp/v2/posts', method: 'POST',
-            headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
-        }, (res) => res.statusCode === 201 ? resolve() : reject(new Error(res.statusCode)));
+            headers: { 
+                'Authorization': `Basic ${auth}`, 
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        }, (res) => {
+            if (res.statusCode === 201) resolve();
+            else {
+                let body = '';
+                res.on('data', d => body += d);
+                res.on('end', () => reject(new Error(`WP Status ${res.statusCode}: ${body}`)));
+            }
+        });
         req.on('error', reject);
         req.write(postData);
         req.end();
