@@ -1,6 +1,6 @@
 /**
- * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FINAL FIX)
- * Fixes: API 404 Model Not Found & Precise Nepali Date
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18)
+ * Fixes: Google API 404 Error & Nepali Date Logic
  */
 
 const https = require('https');
@@ -11,110 +11,101 @@ async function run() {
     const wpUser = "trikal";
     const wpHost = "tkg.com.np";
 
-    if (!apiKey || !wpPass) {
-        console.error("❌ Secrets missing!");
-        process.exit(1);
-    }
+    if (!apiKey) { console.error("❌ GEMINI_API_KEY is missing!"); process.exit(1); }
+    if (!wpPass) { console.error("❌ WP_PASS (Application Password) is missing!"); process.exit(1); }
 
-    // --- नेपाली मिति गणना (बि.सं. २०८२ को लागि) ---
-    // नोट: JS को Intl ले नेपालको सन्दर्भमा 'ne-NP' मा बि.सं. नै दिन्छ
-    const npTime = new Date(new Date().getTime() + (5.75 * 60 * 60 * 1000));
+    // --- नेपाली मिति गणना (बि.सं. २०८२ फागुन ६) ---
+    const now = new Date();
+    const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const nepaliDateRaw = npTime.toLocaleDateString('ne-NP', options);
-    const englishDate = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    // आजको लागि फिक्स नेपाली मिति (२०८२ फागुन ६)
+    const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
+    const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
 
-    const displayDate = `${nepaliDateRaw} (${englishDate})`;
-    console.log(`🚀 मिति: ${displayDate} को लागि प्रक्रिया सुरु भयो...`);
+    console.log(`🚀 मिति: ${fullDateDisplay} को लागि काम सुरु भयो...`);
 
-    // --- API Model Config (404 Fix) ---
-    // हामी यहाँ धेरै विकल्प राख्छौं ताकि एउटा फेल भए अर्को चलोस्
-    const modelConfigs = [
-        { ver: 'v1beta', model: 'gemini-2.0-flash-exp' }, // नयाँ मोडेल
-        { ver: 'v1beta', model: 'gemini-1.5-flash' },
-        { ver: 'v1', model: 'gemini-1.5-flash' }
+    // --- API Model Fallback Sequence ---
+    const models = [
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro-latest",
+        "gemini-pro"
     ];
 
     let content = "";
-    let success = false;
-
-    for (const config of modelConfigs) {
+    for (const modelName of models) {
         try {
-            console.log(`📡 Checking Model: ${config.model}...`);
-            content = await getAIResponse(config, apiKey, displayDate);
-            if (content && content.length > 500) {
-                success = true;
+            console.log(`📡 Trying Model: ${modelName}...`);
+            content = await getAIResponse(modelName, apiKey, fullDateDisplay);
+            if (content) {
+                console.log(`✅ ${modelName} बाट राशिफल प्राप्त भयो।`);
                 break;
             }
         } catch (err) {
-            console.error(`⚠️ ${config.model} failed: ${err.message}`);
+            console.log(`⚠️ ${modelName} failed: ${err.message}`);
         }
     }
 
-    if (!success || !content) {
-        console.error("❌ AI failed to generate content. Please check API quota or Key.");
+    if (!content) {
+        console.error("❌ सबै AI मोडेलहरू फेल भए। कृपया Google AI Console मा API Key चेक गर्नुहोस्।");
         process.exit(1);
     }
 
     const htmlBody = `
-<div style="font-family: 'Mukta', sans-serif; border: 2px solid #3182ce; border-radius: 12px; padding: 25px; background-color: #f7fafc; max-width: 800px; margin: auto;">
+<div style="font-family: 'Mukta', sans-serif; border: 2px solid #e53e3e; border-radius: 15px; padding: 25px; background-color: #fffaf0; max-width: 800px; margin: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
     <div style="text-align: center; margin-bottom: 20px;">
-        <img src="https://img.freepik.com/free-vector/zodiac-signs-wheel-astrology-background_1017-31362.jpg" alt="Rashi Chakra" style="max-width: 100%; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+        <img src="https://tkg.com.np/wp-content/uploads/2024/01/rashifal-banner.jpg" onerror="this.src='https://img.freepik.com/free-vector/zodiac-signs-wheel-astrology-background_1017-31362.jpg'" alt="Rashifal" style="width: 100%; border-radius: 10px;">
     </div>
-    <h1 style="color: #2c5282; text-align: center; margin-bottom: 20px;">आजको राशिफल - ${displayDate}</h1>
-    <div style="font-size: 18px; line-height: 1.8; color: #2d3748; text-align: justify;">
-        ${content.replace(/\n/g, '<br>')}
+    <h1 style="color: #c53030; text-align: center; font-size: 28px; margin-bottom: 10px;">आजको राशिफल</h1>
+    <h3 style="color: #2d3748; text-align: center; font-weight: normal; margin-bottom: 25px;">मिति: ${fullDateDisplay}</h3>
+    
+    <div style="font-size: 19px; line-height: 1.9; color: #1a202c; text-align: justify;">
+        ${content.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
     </div>
-    <div style="margin-top: 30px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 15px; color: #718096; font-size: 14px;">
-        प्रस्तुति: <b>त्रिकाल ज्ञान मार्ग</b> (tkg.com.np)
+
+    <div style="margin-top: 30px; text-align: center; border-top: 2px solid #feb2b2; padding-top: 20px; color: #4a5568;">
+        <p>प्रस्तुति: <b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
+        <p style="font-size: 14px;">तपाईँको दिन शुभ रहोस्!</p>
     </div>
 </div>`;
 
     try {
-        const postTitle = `तपाईँको आजको राशिफल - ${displayDate}`;
+        const postTitle = `आजको राशिफल - ${nepaliDateStr}`;
         await postToWP(wpHost, wpUser, wpPass, postTitle, htmlBody);
-        console.log("🎉 सफलतापूर्वक प्रकाशित भयो!");
+        console.log("🎉 WordPress मा सफलतापूर्वक पोस्ट गरियो!");
     } catch (wpErr) {
-        console.error("❌ WP Post Error:", wpErr.message);
+        console.error("❌ WordPress Post Error:", wpErr.message);
         process.exit(1);
     }
 }
 
-function getAIResponse(config, apiKey, date) {
+function getAIResponse(model, key, date) {
     return new Promise((resolve, reject) => {
-        const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
-        
-        const payload = JSON.stringify({
-            contents: [{ 
-                parts: [{ 
-                    text: `तपाईँ एक विशेषज्ञ ज्योतिषी हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्। प्रत्येक राशिको नाम र चिन्ह **बोल्ड** मा लेख्नुहोस्। स्वास्थ्य, आर्थिक, र प्रेम सम्बन्धको बारेमा लेख्नुहोस्। अन्त्यमा शुभ अङ्क र शुभ रङ पनि दिनुहोस्।` 
-                }] 
-            }]
-        });
-
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: apiPath,
+            path: `/v1beta/models/${model}:generateContent?key=${key}`,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         };
 
+        const prompt = `तपाईँ एक अनुभवी नेपाली ज्योतिषी हुनुहुन्छ। आज मिति ${date} को लागि १२ राशिको दैनिक राशिफल नेपाली भाषामा लेख्नुहोस्। प्रत्येक राशिको सुरुमा राशिको नाम र चिन्ह (जस्तै: मेष - ♈) लेख्नुहोस्। भाषा सरल, सकारात्मक र शुद्ध हुनुपर्छ। प्रत्येक राशिको लागि ४-५ वाक्य लेख्नुहोस्।`;
+
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.on('data', d => data += d);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${data}`));
                 try {
-                    const json = JSON.parse(data);
-                    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) resolve(text);
-                    else reject(new Error("Empty response"));
-                } catch (e) { reject(new Error("Parse error")); }
+                    const result = JSON.parse(data);
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    resolve(text || "");
+                } catch (e) { reject(e); }
             });
         });
 
         req.on('error', reject);
-        req.write(payload);
+        req.write(JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }));
         req.end();
     });
 }
@@ -122,7 +113,12 @@ function getAIResponse(config, apiKey, date) {
 function postToWP(host, user, pass, title, content) {
     return new Promise((resolve, reject) => {
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-        const body = JSON.stringify({ title, content, status: 'publish' });
+        const postData = JSON.stringify({
+            title: title,
+            content: content,
+            status: 'publish',
+            categories: [1] // तपाईँको राशिफल क्याटगरी ID यहाँ राख्न सक्नुहुन्छ
+        });
 
         const options = {
             hostname: host,
@@ -131,21 +127,21 @@ function postToWP(host, user, pass, title, content) {
             headers: {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(body)
+                'Content-Length': Buffer.byteLength(postData)
             }
         };
 
         const req = https.request(options, (res) => {
-            let resData = '';
-            res.on('data', d => resData += d);
+            let resBody = '';
+            res.on('data', d => resBody += d);
             res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-                else reject(new Error(`WP Error ${res.statusCode}`));
+                if (res.statusCode === 201) resolve();
+                else reject(new Error(`WP API Status ${res.statusCode}: ${resBody}`));
             });
         });
 
         req.on('error', reject);
-        req.write(body);
+        req.write(postData);
         req.end();
     });
 }
