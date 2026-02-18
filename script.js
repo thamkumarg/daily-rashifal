@@ -1,6 +1,6 @@
 /**
  * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18)
- * Fixes: Google API 404 Error & Nepali Date Logic
+ * Fixes: Google API 404 Error (Model Not Found) & API Version Mismatch
  */
 
 const https = require('https');
@@ -12,43 +12,44 @@ async function run() {
     const wpHost = "tkg.com.np";
 
     if (!apiKey) { console.error("❌ GEMINI_API_KEY is missing!"); process.exit(1); }
-    if (!wpPass) { console.error("❌ WP_PASS (Application Password) is missing!"); process.exit(1); }
+    if (!wpPass) { console.error("❌ WP_PASS is missing!"); process.exit(1); }
 
     // --- नेपाली मिति गणना (बि.सं. २०८२ फागुन ६) ---
     const now = new Date();
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // आजको लागि फिक्स नेपाली मिति (२०८२ फागुन ६)
+    // आजको लागि नेपाली मिति फिक्स
     const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
 
     console.log(`🚀 मिति: ${fullDateDisplay} को लागि काम सुरु भयो...`);
 
-    // --- API Model Fallback Sequence ---
-    const models = [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest",
-        "gemini-pro"
+    // --- API Configuration Strategy (404 Fix) ---
+    // धेरै भर्सन र मोडेल नामहरू प्रयास गर्ने
+    const configs = [
+        { ver: 'v1beta', model: 'gemini-1.5-flash' },
+        { ver: 'v1', model: 'gemini-1.5-flash' },
+        { ver: 'v1beta', model: 'gemini-1.5-pro' }
     ];
 
     let content = "";
-    for (const modelName of models) {
+    for (const config of configs) {
         try {
-            console.log(`📡 Trying Model: ${modelName}...`);
-            content = await getAIResponse(modelName, apiKey, fullDateDisplay);
-            if (content) {
-                console.log(`✅ ${modelName} बाट राशिफल प्राप्त भयो।`);
+            console.log(`📡 Trying: ${config.ver} with ${config.model}...`);
+            content = await getAIResponse(config.ver, config.model, apiKey, fullDateDisplay);
+            if (content && content.length > 500) {
+                console.log(`✅ सफलता! राशिफल प्राप्त भयो।`);
                 break;
             }
         } catch (err) {
-            console.log(`⚠️ ${modelName} failed: ${err.message}`);
+            console.log(`⚠️ Attempt failed: ${err.message}`);
         }
     }
 
     if (!content) {
-        console.error("❌ सबै AI मोडेलहरू फेल भए। कृपया Google AI Console मा API Key चेक गर्नुहोस्।");
+        console.error("❌ सबै प्रयासहरू असफल भए। कृपया API Key को पर्मिसन चेक गर्नुहोस्।");
         process.exit(1);
     }
 
@@ -80,22 +81,27 @@ async function run() {
     }
 }
 
-function getAIResponse(model, key, date) {
+function getAIResponse(version, model, key, date) {
     return new Promise((resolve, reject) => {
+        const payload = JSON.stringify({
+            contents: [{ parts: [{ text: `तपाईँ एक अनुभवी नेपाली ज्योतिषी हुनुहुन्छ। आज मिति ${date} को लागि १२ राशिको विस्तृत दैनिक राशिफल नेपाली भाषामा लेख्नुहोस्। प्रत्येक राशिको नाम र चिन्ह बोल्डमा लेख्नुहोस्।` }] }]
+        });
+
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: `/v1beta/models/${model}:generateContent?key=${key}`,
+            path: `/${version}/models/${model}:generateContent?key=${key}`,
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
         };
-
-        const prompt = `तपाईँ एक अनुभवी नेपाली ज्योतिषी हुनुहुन्छ। आज मिति ${date} को लागि १२ राशिको दैनिक राशिफल नेपाली भाषामा लेख्नुहोस्। प्रत्येक राशिको सुरुमा राशिको नाम र चिन्ह (जस्तै: मेष - ♈) लेख्नुहोस्। भाषा सरल, सकारात्मक र शुद्ध हुनुपर्छ। प्रत्येक राशिको लागि ४-५ वाक्य लेख्नुहोस्।`;
 
         const req = https.request(options, (res) => {
             let data = '';
             res.on('data', d => data += d);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${data}`));
+                if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}: ${data}`));
                 try {
                     const result = JSON.parse(data);
                     const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -105,7 +111,7 @@ function getAIResponse(model, key, date) {
         });
 
         req.on('error', reject);
-        req.write(JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }));
+        req.write(payload);
         req.end();
     });
 }
@@ -116,8 +122,7 @@ function postToWP(host, user, pass, title, content) {
         const postData = JSON.stringify({
             title: title,
             content: content,
-            status: 'publish',
-            categories: [1] // तपाईँको राशिफल क्याटगरी ID यहाँ राख्न सक्नुहुन्छ
+            status: 'publish'
         });
 
         const options = {
@@ -136,7 +141,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resBody += d);
             res.on('end', () => {
                 if (res.statusCode === 201) resolve();
-                else reject(new Error(`WP API Status ${res.statusCode}: ${resBody}`));
+                else reject(new Error(`WP API Error ${res.statusCode}`));
             });
         });
 
