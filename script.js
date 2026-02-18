@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - REVERTED TO STABLE VERSION
- * Back to the logic that worked before the 404 complications.
+ * 🕉️ TKG RASHIFALA PUBLISHER - STABLE REVERT
+ * This is the version that worked successfully yesterday.
  */
 
 const https = require('https');
@@ -19,7 +19,7 @@ async function run() {
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // आजको लागि नेपाली मिति फिक्स
+    // आजको लागि नेपाली मिति (फेब्रुअरी १८, २०२६ = फागुन ६, २०८२)
     const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
@@ -67,6 +67,7 @@ function getAIResponse(key, date) {
             contents: [{ parts: [{ text: `तपाईँ एक अनुभवी नेपाली ज्योतिषी हुनुहुन्छ। आज मिति ${date} को लागि १२ राशिको विस्तृत दैनिक राशिफल नेपाली भाषामा लेख्नुहोस्। प्रत्येक राशिको नाम र चिन्ह बोल्डमा लेख्नुहोस्। राशिफलमा सकारात्मक र आध्यात्मिक भाषा प्रयोग गर्नुहोस्।` }] }]
         });
 
+        // यो पाथ हिजो सफल भएको पाथ हो
         const options = {
             hostname: 'generativelanguage.googleapis.com',
             path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
