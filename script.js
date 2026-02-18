@@ -24,6 +24,7 @@ async function run() {
     console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
     // गुगलका सबै चल्न सक्ने सम्भावित बाटोहरूको सुची
+    // केही भर्सनमा 'models/' अगाडि '/' चाहिन्छ, केहीमा चाहिँदैन, त्यसैले path निर्माणमा ध्यान दिइएको छ
     const modelConfigs = [
         { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
@@ -60,6 +61,7 @@ async function run() {
         process.exit(1);
     }
 
+    // HTML Content Formatting
     const htmlBody = `
 <div style="font-family: 'Mukta', sans-serif; border: 2px solid #3182ce; border-radius: 12px; padding: 25px; background-color: #f7fafc; max-width: 800px; margin: auto;">
     <h1 style="color: #2c5282; text-align: center; margin-bottom: 20px;">आजको राशिफल - ${dateStr}</h1>
@@ -84,30 +86,45 @@ async function run() {
 function getAIResponse(path, date) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
-            contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format each zodiac sign name in bold like **Mesh:**` }] }]
+            contents: [{ 
+                parts: [{ 
+                    text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. 
+                    Format each zodiac sign name in bold like **Mesh:**. 
+                    Include predictions for health, wealth, and career.` 
+                }] 
+            }]
         });
 
-        const req = https.request({
+        const options = {
             hostname: 'generativelanguage.googleapis.com',
             path: path,
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        }, (res) => {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', chunk => data += chunk);
+            res.on('data', (chunk) => { data += chunk; });
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}`));
+                if (res.statusCode !== 200) {
+                    return reject(new Error(`Status ${res.statusCode}: ${data}`));
+                }
                 try {
                     const json = JSON.parse(data);
-                    if (json.candidates && json.candidates[0].content) {
+                    if (json.candidates && json.candidates[0].content && json.candidates[0].content.parts) {
                         resolve(json.candidates[0].content.parts[0].text);
                     } else {
-                        reject(new Error("Empty response"));
+                        reject(new Error("AI returned an unexpected format."));
                     }
-                } catch (e) { reject(e); }
+                } catch (e) {
+                    reject(new Error("JSON Parse Error"));
+                }
             });
         });
-        req.on('error', reject);
+
+        req.on('error', (e) => reject(e));
         req.write(payload);
         req.end();
     });
@@ -116,9 +133,13 @@ function getAIResponse(path, date) {
 function postToWP(host, user, pass, title, content) {
     return new Promise((resolve, reject) => {
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-        const body = JSON.stringify({ title, content, status: 'publish' });
+        const body = JSON.stringify({
+            title: title,
+            content: content,
+            status: 'publish'
+        });
 
-        const req = https.request({
+        const options = {
             hostname: host,
             path: '/wp-json/wp/v2/posts',
             method: 'POST',
@@ -127,14 +148,28 @@ function postToWP(host, user, pass, title, content) {
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(body)
             }
-        }, (res) => {
-            if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-            else reject(new Error(`WordPress Error ${res.statusCode}`));
+        };
+
+        const req = https.request(options, (res) => {
+            let resData = '';
+            res.on('data', (d) => { resData += d; });
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve();
+                } else {
+                    reject(new Error(`WP status ${res.statusCode}: ${resData}`));
+                }
+            });
         });
-        req.on('error', reject);
+
+        req.on('error', (e) => reject(e));
         req.write(body);
         req.end();
     });
 }
 
-run();
+// प्रक्रिया सुरु गर्ने
+run().catch(err => {
+    console.error("Fatal Error:", err);
+    process.exit(1);
+});
