@@ -22,7 +22,7 @@ async function run() {
 
     console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
-    // Array of potential model configurations to try
+    // Array of potential model configurations to try - Updated with more robust versions
     const modelConfigs = [
         { ver: 'v1beta', model: 'gemini-1.5-flash' },
         { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
@@ -37,10 +37,12 @@ async function run() {
             console.log(`📡 Checking Model: ${config.model} (${config.ver})...`);
             content = await getAIResponse(config, apiKey, dateStr);
             
-            if (content) {
+            if (content && content.length > 500) { // Ensuring we got a full response
                 console.log(`✅ Success with ${config.model}!`);
                 success = true;
                 break;
+            } else {
+                console.warn(`⚠️ Short or invalid content from ${config.model}, trying next...`);
             }
         } catch (err) {
             console.error(`⚠️ ${config.model} failed. Reason: ${err.message}`);
@@ -48,7 +50,7 @@ async function run() {
     }
 
     if (!success || !content) {
-        console.error("❌ All AI models failed. Please check your Gemini API Key billing/quota.");
+        console.error("❌ All AI models failed. This is likely due to API quota or safety filters.");
         process.exit(1);
     }
 
@@ -77,19 +79,28 @@ function getAIResponse(config, apiKey, date) {
     return new Promise((resolve, reject) => {
         const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
         
-        // Using the most basic and reliable payload structure
+        // Advanced Payload with Safety Settings disabled to prevent blockages
         const payload = JSON.stringify({
             contents: [{ 
                 parts: [{ 
-                    text: `तपाईँ एक विशेषज्ञ ज्योतिषी हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल लेख्नुहोस्। 
-                    प्रत्येक राशिको नाम सुरुमा बोल्डमा लेख्नुहोस् (उदा: **मेष:**)। 
-                    स्वास्थ्य, आर्थिक र पारिवारिक सम्बन्धको भविष्यवाणी र शुभ अंक/रङ समावेश गर्नुहोस्।` 
+                    text: `तपाईँ एक अनुभवी ज्योतिष हुनुहुन्छ। आजको मिति ${date} को लागि नेपाली भाषामा १२ राशिको विस्तृत दैनिक राशिफल तयार पार्नुहोस्। 
+                    प्रत्येक राशिको नाम **बोल्ड** मा लेख्नुहोस्। 
+                    भविष्यफलमा स्वास्थ्य, आर्थिक अवस्था, र प्रेम सम्बन्धको बारेमा सकारात्मक जानकारी दिनुहोस्। 
+                    अन्त्यमा प्रत्येक राशिको शुभ अङ्क र शुभ रङ पनि उल्लेख गर्नुहोस्।` 
                 }] 
             }],
             generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2000
-            }
+                temperature: 0.8,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 2500,
+            },
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            ]
         });
 
         const options = {
@@ -106,20 +117,23 @@ function getAIResponse(config, apiKey, date) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode !== 200) {
-                    return reject(new Error(`HTTP ${res.statusCode}: ${data.substring(0, 100)}`));
+                    return reject(new Error(`HTTP ${res.statusCode}: ${data}`));
                 }
                 try {
                     const json = JSON.parse(data);
+                    if (json.candidates && json.candidates[0].finishReason === "SAFETY") {
+                        return reject(new Error("Content blocked by Safety Filters."));
+                    }
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("No text in AI response"));
+                    else reject(new Error("Response structure invalid or empty text."));
                 } catch (e) {
-                    reject(new Error("JSON Parse Error"));
+                    reject(new Error("JSON Parse Error: " + e.message));
                 }
             });
         });
 
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error("Network Error: " + e.message)));
         req.write(payload);
         req.end();
     });
@@ -150,17 +164,17 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resData += d);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-                else reject(new Error(`WP status ${res.statusCode}: ${resData.substring(0, 100)}`));
+                else reject(new Error(`WP status ${res.statusCode}: ${resData.substring(0, 150)}`));
             });
         });
 
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error("WordPress Connection Error: " + e.message)));
         req.write(body);
         req.end();
     });
 }
 
 run().catch(err => {
-    console.error("Critical Failure:", err);
+    console.error("FATAL ERROR:", err.message);
     process.exit(1);
 });
