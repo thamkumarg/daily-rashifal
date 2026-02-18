@@ -1,6 +1,7 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION
- * This version uses improved fallback logic and safety settings to prevent 404 and content blocking.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION (FIXED 404)
+ * This version uses the latest model naming conventions to fix the 404 NOT_FOUND issue
+ * seen in GitHub Actions logs.
  */
 
 const https = require('https');
@@ -53,18 +54,24 @@ async function run() {
 }
 
 async function getAIContentWithFallback(key, date) {
-    // ४०४ एरर र 'Model not found' समस्या समाधानका लागि विकल्पहरू
+    /**
+     * GitHub Actions मा ४०४ एरर आउनुको मुख्य कारण मोडलको नाम नमिल्नु हो।
+     * यहाँ हामी 'latest' र विशिष्ट भर्सनहरू प्रयोग गर्छौँ।
+     */
     const configurations = [
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` },
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}` },
         { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}` }
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}` }
     ];
 
+    let lastError = "";
+
     for (const config of configurations) {
+        const modelName = config.url.split('/models/')[1].split(':')[0];
         try {
-            console.log(`🤖 Attempting API: ${config.url.split('/models/')[1].split(':')[0]}...`);
+            console.log(`🤖 Trying Model: ${modelName}...`);
             const result = await makeRequest(config.url, {
-                contents: [{ parts: [{ text: `Write a very detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format with bold names and icons like ♈ **मेष:**. Include lucky numbers and colors.` }] }],
+                contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Start each sign with its emoji and bold name, e.g., ♈ **मेष:**. Include positive guidance for each.` }] }],
                 safetySettings: [
                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -74,29 +81,37 @@ async function getAIContentWithFallback(key, date) {
             });
             
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text && text.length > 300) return text;
-            else console.warn("⚠️ Response was too short or empty, trying next...");
+            if (text && text.length > 500) {
+                console.log(`✨ Success with ${modelName}!`);
+                return text;
+            }
+            console.warn(`⚠️ ${modelName} returned insufficient content.`);
         } catch (e) {
-            console.warn(`⚠️ Attempt failed for ${config.url.split('models/')[1].split('?')[0]}: ${e.message.substring(0, 60)}`);
+            lastError = e.message;
+            console.warn(`❌ ${modelName} failed: ${e.message.substring(0, 100)}`);
         }
     }
-    throw new Error("All AI endpoints failed. Possible issues: Invalid API Key, Regional restriction, or Billing status.");
+    throw new Error(`All AI models failed. Last Error: ${lastError}. Please check if your API Key is restricted to certain regions.`);
 }
 
 function makeRequest(apiUrl, payload) {
     return new Promise((resolve, reject) => {
-        const req = https.request(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
+        const req = https.request(apiUrl, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000 // 30 seconds timeout
+        }, (res) => {
             let data = '';
             res.on('data', d => data += d);
             res.on('end', () => {
                 if (res.statusCode === 200) {
-                    try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+                    try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("Failed to parse JSON response")); }
                 } else {
-                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    reject(new Error(`Status ${res.statusCode}: ${data}`));
                 }
             });
         });
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error(`Network Error: ${e.message}`)));
         req.write(JSON.stringify(payload));
         req.end();
     });
@@ -121,7 +136,7 @@ function postToWP(host, user, pass, title, content) {
                 res.on('end', () => reject(new Error(`WP Status ${res.statusCode}: ${body}`)));
             }
         });
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error(`WP Connection Error: ${e.message}`)));
         req.write(postData);
         req.end();
     });
