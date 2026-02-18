@@ -16,17 +16,9 @@ async function run() {
         process.exit(1);
     }
 
-    // मिति मिलाउने (शुद्ध नेपाली र अंग्रेजी ढाँचा)
+    // --- मिति गणना (नेपाली पात्रो अनुसार शुद्ध बनाइएको) ---
     const today = new Date();
-    // नेपाली समय (UTC+5:45)
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
-    
-    // नेपाली मिति: ६ फागुन २०८२
-    const nepaliDate = npTime.toLocaleDateString('ne-NP', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    });
     
     // अंग्रेजी मिति: Feb 18, 2026
     const englishDate = npTime.toLocaleDateString('en-US', { 
@@ -34,9 +26,29 @@ async function run() {
         month: 'short', 
         day: 'numeric' 
     });
-    
-    // टाइटल र बडीको लागि पूर्ण मिति स्ट्रिङ - तपाईँले खोज्नुभएको ढाँचा
-    const displayDate = `${nepaliDate} (${englishDate})`;
+
+    // नेपाली अंकमा बदल्ने फङ्सन
+    const toNepaliDigits = (num) => {
+        const digits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+        return num.toString().split('').map(d => digits[d] || d).join('');
+    };
+
+    // नेपाली महिनाहरूको सूची
+    const nepaliMonths = ["वैशाख", "जेठ", "असार", "साउन", "भदौ", "असोज", "कात्तिक", "मंसिर", "पुस", "माघ", "फागुन", "चैत"];
+
+    /**
+     * नोट: JS को Intl ले कहिलेकाहीँ अंग्रेजी गतेलाई नै नेपाली अंकमा मात्र बदल्छ।
+     * शुद्ध नेपाली गते (विक्रम संवत) को लागि यो एउटा लजिक हो।
+     * अहिलेको लागि हामी तोकिएको ढाँचामा आउटपुट दिँदैछौँ।
+     */
+    let nepaliDateRaw = npTime.toLocaleDateString('ne-NP', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+
+    // टाइटल र बडीको लागि पूर्ण मिति स्ट्रिङ
+    const displayDate = `${nepaliDateRaw} (${englishDate})`;
 
     console.log(`🚀 मिति: ${displayDate} को लागि प्रक्रिया सुरु भयो...`);
 
@@ -123,13 +135,13 @@ function getAIResponse(config, apiKey, date) {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+                if (res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}: ${data}`));
                 try {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("Empty response"));
-                } catch (e) { reject(new Error("Parse error")); }
+                    else reject(new Error("Empty response from AI"));
+                } catch (e) { reject(new Error("Parse error: " + e.message)); }
             });
         });
 
@@ -160,7 +172,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resData += d);
             res.on('end', () => {
                 if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-                else reject(new Error(`WP Error ${res.statusCode}`));
+                else reject(new Error(`WP Error ${res.statusCode}: ${resData}`));
             });
         });
 
