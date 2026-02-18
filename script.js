@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION (FIXED 404 & MODEL NOT FOUND)
- * This version uses a smart fallback mechanism to handle Google API Model Name changes.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE STABLE VERSION
+ * Fixes the 404 "Model Not Found" error by using Stable v1 API.
  */
 
 const https = require('https');
@@ -11,14 +11,14 @@ async function run() {
     const wpUser = "trikal";
     const wpHost = "tkg.com.np";
 
-    if (!apiKey) { console.error("❌ GEMINI_API_KEY missing in GitHub Secrets!"); process.exit(1); }
-    if (!wpPass) { console.error("❌ WP_PASS missing in GitHub Secrets!"); process.exit(1); }
+    if (!apiKey) { console.error("❌ API Key missing!"); process.exit(1); }
+    if (!wpPass) { console.error("❌ WP Pass missing!"); process.exit(1); }
 
-    // मिति सेटिङ (फागुन ७, २०८१ - आजको लागि)
+    // आजको मिति (७ फागुन २०८१ - Wednesday)
     const nepaliDateStr = "७ फागुन २०८१, बुधबार"; 
     const fullDateDisplay = `${nepaliDateStr} (February 18, 2026)`;
 
-    console.log(`🚀 Task Started for: ${fullDateDisplay}`);
+    console.log(`🚀 Script started for: ${fullDateDisplay}`);
 
     try {
         const content = await getAIContent(apiKey, fullDateDisplay);
@@ -39,49 +39,45 @@ async function run() {
 </div>`;
 
         await postToWP(wpHost, wpUser, wpPass, `आजको राशिफल - ${nepaliDateStr}`, htmlBody);
-        console.log("✅ WordPress मा सफलतापुर्वक पब्लिश भयो!");
+        console.log("✅ Success! Post published on TKG.");
 
     } catch (err) {
-        console.error("❌ Fatal Script Error:", err.message);
+        console.error("❌ Fatal Error:", err.message);
         process.exit(1);
     }
 }
 
 async function getAIContent(key, date) {
-    // विभिन्न मोडेल नामहरू प्रयास गर्ने लिस्ट (४०४ एररबाट बच्न)
-    const models = [
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-pro"
+    // एन्डपोइन्ट र मोडेलको कम्बिनेशन (४०४ बाट बच्न)
+    const configs = [
+        { ver: 'v1', model: 'gemini-1.5-flash' },     // Stable version (Recommended)
+        { ver: 'v1beta', model: 'gemini-1.5-flash' }, // Beta fallback
+        { ver: 'v1', model: 'gemini-pro' }            // Legacy stable fallback
     ];
 
-    const prompt = `Write a very detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
-    Format each sign with an icon like ♈ **मेष:**. 
-    Write 3-4 sentences for each sign. 
-    At the end of each sign, include 'शुभ अंक' and 'शुभ रङ'. 
-    Make the tone positive and astrological.`;
+    const prompt = `Write a detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
+    Format: ♈ **मेष:** (3-4 sentences). At the end of each sign: 'शुभ अंक' and 'शुभ रङ'. 
+    Tone: Professional, Positive, Astrological.`;
 
-    for (const model of models) {
+    for (const config of configs) {
         try {
-            console.log(`🤖 Attempting API with model: ${model}...`);
-            const result = await makeApiCall(key, model, prompt);
+            console.log(`🤖 Trying ${config.ver} with ${config.model}...`);
+            const result = await makeApiCall(key, config.ver, config.model, prompt);
             if (result) return result;
         } catch (e) {
-            console.warn(`⚠️ Attempt failed for ${model}: ${e.message}`);
-            // अर्को मोडेल प्रयास गर्न जारी राख्ने
+            console.warn(`⚠️ Failed: ${e.message}`);
         }
     }
 
-    throw new Error("All AI model endpoints failed. Please check your API key and permissions.");
+    throw new Error("All Google AI endpoints returned errors. Check API quota or Key restrictions.");
 }
 
-function makeApiCall(key, model, prompt) {
-    // v1beta एन्डपोइन्टमा पूर्ण मोडेल पथ प्रयोग गरिएको छ
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+function makeApiCall(key, version, model, prompt) {
+    const url = `https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${key}`;
     
-    const payload = {
+    const payload = JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }]
-    };
+    });
 
     return new Promise((resolve, reject) => {
         const req = https.request(url, { 
@@ -95,14 +91,14 @@ function makeApiCall(key, model, prompt) {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("Empty text in response"));
+                    else reject(new Error("Response has no text content"));
                 } else {
-                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    reject(new Error(`API ${res.statusCode}: ${data}`));
                 }
             });
         });
         req.on('error', e => reject(e));
-        req.write(JSON.stringify(payload));
+        req.write(payload);
         req.end();
     });
 }
@@ -123,7 +119,7 @@ function postToWP(host, user, pass, title, content) {
             else {
                 let body = '';
                 res.on('data', d => body += d);
-                res.on('end', () => reject(new Error(`WP API Error ${res.statusCode}: ${body}`)));
+                res.on('end', () => reject(new Error(`WP API ${res.statusCode}: ${body}`)));
             }
         });
         req.on('error', e => reject(e));
