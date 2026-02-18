@@ -23,22 +23,22 @@ async function run() {
     const nepaliDays = ['आइतबार', 'सोमबार', 'मंगलबार', 'बुधबार', 'बिहीबार', 'शुक्रबार', 'शनिबार'];
     const dayName = nepaliDays[targetDate.getDay()];
     
-    // नेपाली गते निकाल्ने एउटा साधारण लजिक
+    // नेपाली गते निकाल्ने लजिक - सन् २०२६ फेब्रुअरी १८ = २०८२ फागुन ६
     const getNepaliDate = (date) => {
         const nepaliDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
         const toNep = (n) => n.toString().split('').map(d => nepaliDigits[d]).join('');
         
-        // सन् २०२६ फेब्रुअरी १८ को आसपासको गणना
+        // २०८२ फागुन ६ गतेको आधारमा गणना (सन् २०२६ फेब्रुअरी १८)
         let nYear = toNep(2082);
         let nMonth = "फागुन";
-        let nDay = toNep(7 + daysOffset); 
+        let nDay = toNep(6 + daysOffset); 
         
         return `${nMonth} ${nDay}, ${nYear}`;
     };
 
     const nepaliFullDate = getNepaliDate(targetDate);
     
-    // प्रदर्शनको लागि केवल नेपाली मिति
+    // प्रदर्शनको लागि केवल नेपाली मिति (अब फागुन ६ देखिनेछ)
     const fullDateDisplay = `${dayName}, ${nepaliFullDate}`;
 
     console.log(`🚀 Task Started for: ${fullDateDisplay}`);
@@ -107,8 +107,8 @@ async function run() {
     }
 }
 
-async function getAvailableModels(key) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
+async function getAvailableModels(apiKey) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
             let data = '';
@@ -124,8 +124,8 @@ async function getAvailableModels(key) {
     });
 }
 
-async function generateAIContent(key, modelPath, date) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${key}`;
+async function generateAIContent(apiKey, modelPath, date) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${apiKey}`;
     const payload = JSON.stringify({
         contents: [{
             parts: [{
