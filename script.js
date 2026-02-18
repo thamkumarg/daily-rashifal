@@ -23,22 +23,22 @@ async function run() {
     const nepaliDays = ['आइतबार', 'सोमबार', 'मंगलबार', 'बुधबार', 'बिहीबार', 'शुक्रबार', 'शनिबार'];
     const dayName = nepaliDays[targetDate.getDay()];
     
-    // नेपाली गते निकाल्ने एउटा साधारण लजिक (फेब्रुअरी १८, २०२६ को लागि ७ फागुन २०८२ आसपास हुन्छ)
+    // नेपाली गते निकाल्ने एउटा साधारण लजिक
     const getNepaliDate = (date) => {
         const nepaliDigits = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
         const toNep = (n) => n.toString().split('').map(d => nepaliDigits[d]).join('');
         
-        // सन् २०२६ फेब्रुअरी १८ = २०८२ फागुन ७ (अन्दाजी)
+        // सन् २०२६ फेब्रुअरी १८ को आसपासको गणना
         let nYear = toNep(2082);
         let nMonth = "फागुन";
-        let nDay = toNep(7 + daysOffset); // गते परिवर्तन
+        let nDay = toNep(7 + daysOffset); 
         
         return `${nMonth} ${nDay}, ${nYear}`;
     };
 
     const nepaliFullDate = getNepaliDate(targetDate);
     
-    // प्रदर्शनको लागि: "बुधबार, फागुन ७, २०८२"
+    // प्रदर्शनको लागि केवल नेपाली मिति
     const fullDateDisplay = `${dayName}, ${nepaliFullDate}`;
 
     console.log(`🚀 Task Started for: ${fullDateDisplay}`);
@@ -68,16 +68,14 @@ async function run() {
                 const trimmed = line.trim();
                 if (!trimmed) return '';
                 
-                // राशि चिन्हबाट सुरु हुने लाइन फेला पार्ने
                 if (trimmed.match(/^[♈♉♊♋♌♍♎♏♐♑♒♓]/)) {
                     const parts = trimmed.split(':');
                     const rashiTitle = parts[0].trim();
                     let rashiDesc = parts.slice(1).join(':').trim();
 
-                    // शुभ रङ र अंकलाई छुट्टै स्टाइल दिन 'Split' गर्ने प्रयास
-                    // AI ले "शुभ रङ: रातो, शुभ अंक: ५" भनेर पठाउँछ भन्ने अनुमानमा
-                    rashiDesc = rashiDesc.replace(/(शुभ रङ[:\s]+[^\s,]+)/g, '<br><span style="color:#800000; font-weight:bold; font-size:16px;">🎨 $1</span>');
-                    rashiDesc = rashiDesc.replace(/(शुभ अंक[:\s]+[^\s,]+)/g, '<span style="color:#800000; font-weight:bold; font-size:16px; margin-left:15px;">🔢 $1</span>');
+                    // शुभ रङ र अंकलाई बक्स भित्रै स्टाइल गर्ने
+                    rashiDesc = rashiDesc.replace(/(शुभ रङ[:\s]+[^\s,।]+)/g, '<br><span style="color:#800000; font-weight:bold; font-size:16px;">🎨 $1</span>');
+                    rashiDesc = rashiDesc.replace(/(शुभ अंक[:\s]+[^\s,।]+)/g, '<span style="color:#800000; font-weight:bold; font-size:16px; margin-left:15px;">🔢 $1</span>');
 
                     return `
                     <div style="background: white; border: 1px solid #d4af37; border-radius: 10px; margin: 25px 0; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
