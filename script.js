@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - STABLE REVERT
- * This is the version that worked successfully yesterday.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION
+ * Fixed the 404 NOT_FOUND error by correcting API paths and adding fallbacks.
  */
 
 const https = require('https');
@@ -14,12 +14,11 @@ async function run() {
     if (!apiKey) { console.error("❌ GEMINI_API_KEY is missing!"); process.exit(1); }
     if (!wpPass) { console.error("❌ WP_PASS is missing!"); process.exit(1); }
 
-    // --- नेपाली मिति गणना (बि.सं. २०८२ फागुन ६) ---
     const now = new Date();
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // आजको लागि नेपाली मिति (फेब्रुअरी १८, २०२६ = फागुन ६, २०८२)
+    // Fixed Nepali Date for Feb 18
     const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
@@ -27,7 +26,7 @@ async function run() {
     console.log(`🚀 मिति: ${fullDateDisplay} को लागि काम सुरु भयो...`);
 
     try {
-        const content = await getAIResponse(apiKey, fullDateDisplay);
+        const content = await getAIResponseWithFallback(apiKey, fullDateDisplay);
         
         if (!content || content.length < 500) {
             throw new Error("AI content generation failed or too short.");
@@ -61,20 +60,41 @@ async function run() {
     }
 }
 
-function getAIResponse(key, date) {
+/**
+ * Tries multiple models to avoid 404 errors shown in logs.
+ */
+async function getAIResponseWithFallback(key, date) {
+    // List of models to try in order
+    const models = [
+        { version: 'v1', name: 'gemini-1.5-flash' },
+        { version: 'v1beta', name: 'gemini-1.5-pro' },
+        { version: 'v1', name: 'gemini-pro' }
+    ];
+
+    for (const model of models) {
+        try {
+            console.log(`🤖 Trying model: ${model.name} (${model.version})...`);
+            const result = await makeAIRequest(key, date, model.version, model.name);
+            if (result) return result;
+        } catch (e) {
+            console.warn(`⚠️ ${model.name} failed: ${e.message}`);
+            continue; // Try next model
+        }
+    }
+    throw new Error("All AI models failed. Please check API Key or Quota.");
+}
+
+function makeAIRequest(key, date, version, modelName) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
             contents: [{ parts: [{ text: `तपाईँ एक अनुभवी नेपाली ज्योतिषी हुनुहुन्छ। आज मिति ${date} को लागि १२ राशिको विस्तृत दैनिक राशिफल नेपाली भाषामा लेख्नुहोस्। प्रत्येक राशिको नाम र चिन्ह बोल्डमा लेख्नुहोस्। राशिफलमा सकारात्मक र आध्यात्मिक भाषा प्रयोग गर्नुहोस्।` }] }]
         });
 
-        // यो पाथ हिजो सफल भएको पाथ हो
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+            path: `/${version}/models/${modelName}:generateContent?key=${key}`,
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Content-Type': 'application/json' }
         };
 
         const req = https.request(options, (res) => {
@@ -82,12 +102,12 @@ function getAIResponse(key, date) {
             res.on('data', d => data += d);
             res.on('end', () => {
                 if (res.statusCode !== 200) {
-                    return reject(new Error(`API Error ${res.statusCode}: ${data}`));
+                    return reject(new Error(`Status ${res.statusCode}`));
                 }
                 try {
-                    const result = JSON.parse(data);
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    resolve(text || "");
+                    const json = JSON.parse(data);
+                    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                    resolve(text || null);
                 } catch (e) { reject(e); }
             });
         });
@@ -123,7 +143,7 @@ function postToWP(host, user, pass, title, content) {
             res.on('data', d => resBody += d);
             res.on('end', () => {
                 if (res.statusCode === 201) resolve();
-                else reject(new Error(`WP API Error ${res.statusCode}: ${resBody}`));
+                else reject(new Error(`WP Error ${res.statusCode}: ${resBody}`));
             });
         });
 
