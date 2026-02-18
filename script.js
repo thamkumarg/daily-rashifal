@@ -1,7 +1,6 @@
 /**
  * ⚡ TKG RASHIFAL ENGINE - FINAL PRODUCTION READY
- * यो कोडले सिधै WordPress मा पोस्ट पठाउँछ। 
- * असफल हुने दर: ०%
+ * यो संस्करणमा 'Error Handling' लाई अझै बलियो बनाइएको छ।
  */
 
 const https = require('https');
@@ -12,36 +11,41 @@ async function run() {
     const wpUser = "trikal";
     const wpHost = "tkg.com.np";
 
-    if (!apiKey || !wpPass) {
-        console.error("❌ ERROR: Secrets (GEMINI_API_KEY or WP_PASS) नभेटिएकोले काम रोकियो।");
-        process.exit(1);
-    }
+    console.log("🔍 Checking Environment...");
+    if (!apiKey) { console.error("❌ Error: GEMINI_API_KEY नभेटिएकोले काम रोकियो।"); process.exit(1); }
+    if (!wpPass) { console.error("❌ Error: WP_PASS नभेटिएकोले काम रोकियो।"); process.exit(1); }
 
     try {
         const today = new Date();
         const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
         const dateStr = npTime.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        console.log(`🚀 ${dateStr} को लागि राशिफल बनाउँदै...`);
+        console.log(`🚀 ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
         // १. एआईबाट सामग्री ल्याउने
+        console.log("⏳ एआईबाट राशिफल मगाउँदै...");
         const content = await getAIContent(apiKey, dateStr);
         
+        if (!content || content.length < 100) {
+            throw new Error("एआईले पर्याप्त सामग्री दिएन।");
+        }
+
         // २. एचटीएमएल ढाँचा तयार पार्ने
         const htmlPost = `
-<div style="font-family: 'Mukta', sans-serif; padding: 20px; border: 2px solid #d4af37; border-radius: 15px; background: #fff;">
+<div style="font-family: 'Mukta', sans-serif; padding: 20px; border: 2px solid #d4af37; border-radius: 15px; background: #fff; color: #333;">
     <h2 style="color: #d4af37; text-align: center;">आजको राशिफल: ${dateStr}</h2>
-    <div style="line-height: 1.8; font-size: 17px; color: #333;">
+    <div style="line-height: 1.8; font-size: 18px;">
         ${content.replace(/\n/g, '<br>')}
     </div>
-    <p style="text-align: center; margin-top: 20px; color: #777; font-size: 12px;">© त्रिकाल ज्ञान मार्ग</p>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+    <p style="text-align: center; color: #777; font-size: 14px;">© त्रिकाल ज्ञान मार्ग | tkg.com.np</p>
 </div>`;
 
         // ३. वर्डप्रेसमा पठाउने
-        console.log("⏳ वर्डप्रेसमा पोस्ट पठाउँदै...");
-        await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlPost);
+        console.log("⏳ वर्डप्रेस (tkg.com.np) मा पब्लिश गर्दै...");
+        await postToWP(wpHost, wpUser, wpPass, `आजको दैनिक राशिफल - ${dateStr}`, htmlPost);
         
-        console.log("✅ काम सकियो! वेबसाइट चेक गर्नुहोस्।");
+        console.log("✅ सफल भयो! राशिफल वेबसाइटमा पब्लिश भइसक्यो।");
 
     } catch (err) {
         console.error(`❌ काम बिग्रियो: ${err.message}`);
@@ -52,23 +56,33 @@ async function run() {
 function getAIContent(key, date) {
     return new Promise((resolve, reject) => {
         const body = JSON.stringify({
-            contents: [{ parts: [{ text: `आज ${date} को नेपाली राशिफल लेख्नुहोस्। १२ वटै राशिको फल आकर्षक पारामा बुलेट विना दिनुहोस्।` }] }]
+            contents: [{ parts: [{ text: `आज ${date} को लागि १२ वटै राशिको नेपाली राशिफल लेख्नुहोस्। प्रत्येक राशिको नाम र चिन्ह बोल्डमा राख्नुहोस्।` }] }]
         });
-        const req = https.request({
+        
+        const options = {
             hostname: 'generativelanguage.googleapis.com',
             path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
-        }, (res) => {
+        };
+
+        const req = https.request(options, (res) => {
             let d = '';
             res.on('data', chunk => d += chunk);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(`AI API Error: ${res.statusCode}`));
-                const json = JSON.parse(d);
-                resolve(json.candidates[0].content.parts[0].text);
+                if (res.statusCode !== 200) {
+                    return reject(new Error(`AI API Error (${res.statusCode}): ${d}`));
+                }
+                try {
+                    const json = JSON.parse(d);
+                    const result = json.candidates[0].content.parts[0].text;
+                    resolve(result);
+                } catch (e) {
+                    reject(new Error("AI response parse error"));
+                }
             });
         });
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error(`AI Network Error: ${e.message}`)));
         req.write(body);
         req.end();
     });
@@ -77,25 +91,37 @@ function getAIContent(key, date) {
 function postToWP(host, user, pass, title, content) {
     return new Promise((resolve, reject) => {
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-        const body = JSON.stringify({ title, content, status: 'publish' });
-        const req = https.request({
+        const body = JSON.stringify({ 
+            title: title, 
+            content: content, 
+            status: 'publish',
+            categories: [1] // राशिफल क्याटगोरीको ID मिलाउनुहोला
+        });
+
+        const options = {
             hostname: host,
             path: '/wp-json/wp/v2/posts',
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${auth}`,
                 'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(body)
+                'Content-Length': Buffer.byteLength(body),
+                'User-Agent': 'TKG-Auto-Bot/1.0'
             }
-        }, (res) => {
-            if (res.statusCode >= 200 && res.statusCode < 300) resolve();
-            else {
-                let d = '';
-                res.on('data', chunk => d += chunk);
-                res.on('end', () => reject(new Error(`WP Error ${res.statusCode}: ${d}`)));
-            }
+        };
+
+        const req = https.request(options, (res) => {
+            let d = '';
+            res.on('data', chunk => d += chunk);
+            res.on('end', () => {
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve();
+                } else {
+                    reject(new Error(`WP Error (${res.statusCode}): ${d}`));
+                }
+            });
         });
-        req.on('error', reject);
+        req.on('error', (e) => reject(new Error(`WP Network Error: ${e.message}`)));
         req.write(body);
         req.end();
     });
