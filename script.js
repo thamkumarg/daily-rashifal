@@ -17,7 +17,7 @@ async function run() {
     // --- अटोमेटिक मिति निकाल्ने लजिक ---
     const today = new Date();
     
-    // अंग्रेजी मिति (उदा: February 18, 2026)
+    // अंग्रेजी मिति (Current System Date)
     const optionsEn = { year: 'numeric', month: 'long', day: 'numeric' };
     const englishDateStr = today.toLocaleDateString('en-US', optionsEn);
     
