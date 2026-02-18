@@ -1,6 +1,6 @@
 /**
  * ⚡ TKG RASHIFAL ENGINE - FINAL PRODUCTION READY
- * यो संस्करणमा 'Error Handling' लाई अझै बलियो बनाइएको छ।
+ * यो संस्करणमा एआई मोडलको ४०४ समस्या समाधान गरिएको छ।
  */
 
 const https = require('https');
@@ -59,9 +59,10 @@ function getAIContent(key, date) {
             contents: [{ parts: [{ text: `आज ${date} को लागि १२ वटै राशिको नेपाली राशिफल लेख्नुहोस्। प्रत्येक राशिको नाम र चिन्ह बोल्डमा राख्नुहोस्।` }] }]
         });
         
+        // मोडल नाम परिवर्तन गरिएको छ (४०४ हटाउन)
         const options = {
             hostname: 'generativelanguage.googleapis.com',
-            path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+            path: `/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}`,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         };
@@ -95,7 +96,7 @@ function postToWP(host, user, pass, title, content) {
             title: title, 
             content: content, 
             status: 'publish',
-            categories: [1] // राशिफल क्याटगोरीको ID मिलाउनुहोला
+            categories: [1] 
         });
 
         const options = {
