@@ -16,15 +16,27 @@ async function run() {
         process.exit(1);
     }
 
-    // मिति मिलाउने (नेपाली र अंग्रेजी दुवै)
+    // मिति मिलाउने (शुद्ध नेपाली र अंग्रेजी ढाँचा)
     const today = new Date();
+    // नेपाली समय (UTC+5:45)
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     
-    const nepaliDate = npTime.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
-    const englishDate = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    // नेपाली मिति: ५ फागुन २०८२
+    const nepaliDate = npTime.toLocaleDateString('ne-NP', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
     
-    // टाइटिल र बडीको लागि मिति स्ट्रिङ
-    const displayDate = `${nepaliDate} (तदनुसार ${englishDate})`;
+    // अंग्रेजी मिति: Feb 18, 2026
+    const englishDate = npTime.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+    
+    // टाइटल र बडीको लागि पूर्ण मिति स्ट्रिङ
+    const displayDate = `${nepaliDate} (${englishDate})`;
 
     console.log(`🚀 मिति: ${displayDate} को लागि प्रक्रिया सुरु भयो...`);
 
