@@ -2,7 +2,7 @@
  * 🕉️ TKG RASHIFALA - FINAL AUTO-RECOVERY SCRIPT
  * This script auto-detects available models to fix 404 errors.
  * Fix: Corrected Nepali Year to 2082 (for Feb 2026)
- * UI: Enhanced Premium Design for WordPress
+ * UI: Enhanced Premium Design for WordPress (Zodiac Cards Style)
  */
 
 const https = require('https');
@@ -39,36 +39,40 @@ async function run() {
         
         // Premium UI Formatting
         const htmlBody = `
-<div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #fdfaf5; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+<div style="font-family: 'Mukta', sans-serif; max-width: 800px; margin: auto; background-color: #ffffff; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid #eee;">
     <!-- Header Banner -->
-    <div style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); padding: 40px 20px; text-align: center; color: white;">
-        <h1 style="margin: 0; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">🕉️ आजको राशिफल</h1>
-        <p style="margin: 10px 0 0; font-size: 18px; opacity: 0.9;">${fullDateDisplay}</p>
+    <div style="background: #b71c1c; padding: 30px 15px; text-align: center; color: white; border-bottom: 5px solid #ffca28;">
+        <h1 style="margin: 0; font-size: 32px; letter-spacing: 1px;">🕉️ आजको राशिफल</h1>
+        <p style="margin: 5px 0 0; font-size: 18px; font-weight: 300;">${fullDateDisplay}</p>
     </div>
 
-    <div style="padding: 30px; background: white;">
-        <div style="font-size: 19px; line-height: 2; color: #2d3748; text-align: justify;">
+    <div style="padding: 25px; background: #fffcf7;">
+        <div style="font-size: 18px; line-height: 1.8; color: #333;">
             ${rawContent.split('\n').map(line => {
                 const trimmed = line.trim();
                 if (!trimmed) return '';
                 
-                // If the line starts with an emoji, it's a zodiac sign - style it as a card
+                // Styling the Zodiac Signs as separate prominent cards
                 if (trimmed.match(/^[♈♉♊♋♌♍♎♏♐♑♒♓]/)) {
                     return `
-                    <div style="background: #fffcf0; border-left: 5px solid #d32f2f; padding: 15px 20px; border-radius: 8px; margin: 25px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
-                        <div style="font-size: 22px; color: #b71c1c; font-weight: bold; margin-bottom: 8px;">${trimmed.split(':')[0]}</div>
-                        <div style="color: #4a5568;">${trimmed.split(':').slice(1).join(':').trim()}</div>
+                    <div style="background: white; border: 1px solid #ffe0b2; border-radius: 12px; margin: 20px 0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+                        <div style="background: #fff8e1; padding: 10px 20px; border-bottom: 1px solid #ffe0b2; color: #d32f2f; font-size: 22px; font-weight: bold;">
+                            ${trimmed.split(':')[0]}
+                        </div>
+                        <div style="padding: 15px 20px; color: #444; text-align: justify;">
+                            ${trimmed.split(':').slice(1).join(':').trim()}
+                        </div>
                     </div>`;
                 }
-                return `<p>${trimmed}</p>`;
+                return `<p style="margin-bottom: 15px;">${trimmed}</p>`;
             }).join('')}
         </div>
     </div>
 
-    <!-- Footer -->
-    <div style="background: #f8fafc; padding: 25px; text-align: center; border-top: 1px solid #edf2f7;">
-        <p style="margin: 0; color: #718096; font-size: 15px;">प्रस्तुति: <b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
-        <p style="margin: 5px 0 0; color: #a0aec0; font-size: 13px;">आध्यात्मिक मार्गदर्शन र ज्योतिषिय विश्लेषण</p>
+    <!-- Footer Credit -->
+    <div style="background: #f5f5f5; padding: 20px; text-align: center; border-top: 1px solid #eee; color: #666;">
+        <p style="margin: 0; font-size: 16px;"><b>त्रिकाल ज्ञान मार्ग (TKG)</b></p>
+        <p style="margin: 5px 0 0; font-size: 13px;">तपाईँको दिन शुभ रहोस् ।</p>
     </div>
 </div>`;
 
@@ -111,8 +115,11 @@ async function generateAIContent(key, modelPath, date) {
             parts: [{
                 text: `Write a detailed daily horoscope in Nepali for all 12 zodiac signs for ${date}. 
                 Format: Each sign MUST start with its emoji and name in this format "♈ मेष: [description]". 
-                Include: General prediction, Lucky Color (शुभ रङ), and Lucky Number (शुभ अंक) for each sign. 
-                Keep the tone spiritual and positive.`
+                Inside description, clearly list: 
+                - Prediction paragraph
+                - शुभ रङ: [Color Name]
+                - शुभ अंक: [Number]
+                Keep the tone spiritual, professional and positive.`
             }]
         }]
     });
