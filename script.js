@@ -1,7 +1,6 @@
 /**
- * ⚡ TKG RASHIFAL ENGINE - FINAL UNIVERSAL FIX
- * यो स्क्रिप्टले धेरै मोडल र API भर्सनहरू आफैं चेक गर्छ।
- * कुनै एउटा ४०४ भएमा अर्कोमा स्विच हुन्छ।
+ * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR
+ * यो स्क्रिप्टले काम नगर्ने सबै सम्भावित कारणहरूलाई हटाउँछ।
  */
 
 const https = require('https');
@@ -12,9 +11,8 @@ async function run() {
     const wpUser = "trikal";
     const wpHost = "tkg.com.np";
 
-    console.log("🔍 System Check Started...");
     if (!apiKey || !wpPass) {
-        console.error("❌ API Key वा WordPress Password सेट गरिएको छैन!");
+        console.error("❌ Secrets not set correctly!");
         process.exit(1);
     }
 
@@ -22,79 +20,77 @@ async function run() {
     const npTime = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const dateStr = npTime.toLocaleDateString('ne-NP', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    console.log(`🚀 मिति: ${dateStr} को तयारी हुँदैछ...`);
+    console.log(`🚀 मिति: ${dateStr} को लागि काम सुरु भयो...`);
 
-    // प्रयास गर्नुपर्ने मोडलहरूको लिस्ट (सबैभन्दा नयाँ देखि पुरानो सम्म)
-    const modelOptions = [
-        { version: 'v1beta', name: 'gemini-1.5-flash-latest' },
-        { version: 'v1beta', name: 'gemini-1.5-pro-latest' },
-        { version: 'v1', name: 'gemini-pro' },
-        { version: 'v1beta', name: 'gemini-pro' }
+    // गुगलका सबै चल्ने मोडलहरूको सूची - पालैपालो चेक हुनेछ
+    const models = [
+        { ver: 'v1beta', name: 'gemini-1.5-flash' },
+        { ver: 'v1', name: 'gemini-pro' },
+        { ver: 'v1beta', name: 'gemini-pro' },
+        { ver: 'v1', name: 'gemini-1.5-flash' }
     ];
 
-    let aiContent = "";
-    let success = false;
+    let content = "";
+    let lastError = "";
 
-    for (const opt of modelOptions) {
+    for (const model of models) {
         try {
-            console.log(`📡 Trying: ${opt.name} (${opt.version})...`);
-            aiContent = await getAIResponse(apiKey, dateStr, opt.version, opt.name);
-            if (aiContent) {
-                console.log(`✅ Success with ${opt.name}!`);
-                success = true;
-                break; 
+            console.log(`📡 Trying Model: ${model.name} (${model.ver})...`);
+            content = await getAIContent(apiKey, dateStr, model.ver, model.name);
+            if (content) {
+                console.log(`✅ Success with ${model.name}!`);
+                break;
             }
-        } catch (e) {
-            console.log(`⚠️ Failed: ${opt.name}. Moving to next...`);
+        } catch (err) {
+            lastError = err.message;
+            console.log(`⚠️ ${model.name} failed, trying next...`);
         }
     }
 
-    if (!success) {
-        console.error("❌ कुनै पनि मोडलले काम गरेन। गुगल एआईमा केही ठूलो समस्या छ।");
+    if (!content) {
+        console.error("❌ सबै मोडल फेल भए। अन्तिम एरर:", lastError);
         process.exit(1);
     }
 
-    // पोस्ट गर्ने ढाँचा
-    const postBody = `
-<div style="font-family: 'Mukta', sans-serif; padding: 25px; border: 3px double #d4af37; border-radius: 20px; background-color: #fdfcf0; color: #222;">
-    <h1 style="text-align: center; color: #b45309;">आजको राशिफल: ${dateStr}</h1>
-    <div style="font-size: 19px; line-height: 1.8;">
-        ${aiContent.replace(/\n/g, '<br>')}
+    const htmlContent = `
+<div style="font-family: 'Mukta', sans-serif; border: 2px solid #e2e8f0; border-radius: 15px; padding: 20px; background: #fff;">
+    <h2 style="color: #2d3748; text-align: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px;">आजको राशिफल - ${dateStr}</h2>
+    <div style="font-size: 18px; line-height: 1.8; color: #4a5568;">
+        ${content.replace(/\n/g, '<br>')}
     </div>
-    <p style="text-align: center; margin-top: 30px; font-weight: bold; color: #555;">© त्रिकाल ज्ञान मार्ग | tkg.com.np</p>
+    <hr style="margin: 20px 0; border: 0; border-top: 1px dashed #cbd5e0;">
+    <p style="text-align: center; font-size: 14px; color: #718096;">स्रोत: त्रिकाल ज्ञान मार्ग (tkg.com.np)</p>
 </div>`;
 
     try {
-        console.log("⏳ WordPress मा पठाउँदै...");
-        await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, postBody);
-        console.log("🎉 बधाई छ! राशिफल सफलतापूर्वक प्रकाशित भयो।");
-    } catch (err) {
-        console.error(`❌ WordPress Error: ${err.message}`);
+        console.log("⏳ WordPress मा पोस्ट गर्दै...");
+        await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlContent);
+        console.log("🎉 सफलतापूर्वक प्रकाशित भयो!");
+    } catch (wpErr) {
+        console.error("❌ WP Post Error:", wpErr.message);
         process.exit(1);
     }
 }
 
-function getAIResponse(key, date, version, model) {
+function getAIContent(key, date, ver, modelName) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
-            contents: [{ parts: [{ text: `Write the daily horoscope for all 12 signs in Nepali for ${date}. Format with bold sign names.` }] }]
+            contents: [{ parts: [{ text: `Write the daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format it clearly with sign names in bold.` }] }]
         });
 
-        const options = {
+        const req = https.request({
             hostname: 'generativelanguage.googleapis.com',
-            path: `/${version}/models/${model}:generateContent?key=${key}`,
+            path: `/${ver}/models/${modelName}:generateContent?key=${key}`,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
-        };
-
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
+        }, (res) => {
+            let str = '';
+            res.on('data', chunk => str += chunk);
             res.on('end', () => {
-                if (res.statusCode !== 200) return reject(new Error(data));
+                if (res.statusCode !== 200) return reject(new Error(`Status ${res.statusCode}: ${str}`));
                 try {
-                    const parsed = JSON.parse(data);
-                    resolve(parsed.candidates[0].content.parts[0].text);
+                    const json = JSON.parse(str);
+                    resolve(json.candidates[0].content.parts[0].text);
                 } catch (e) { reject(e); }
             });
         });
@@ -107,7 +103,7 @@ function getAIResponse(key, date, version, model) {
 function postToWP(host, user, pass, title, content) {
     return new Promise((resolve, reject) => {
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-        const body = JSON.stringify({ title, content, status: 'publish', categories: [1] });
+        const body = JSON.stringify({ title, content, status: 'publish' });
 
         const req = https.request({
             hostname: host,
