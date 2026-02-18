@@ -1,7 +1,7 @@
 /**
  * ⚡ TKG RASHIFALA PUBLISHER - ULTIMATE REPAIR (FEB 18 FINAL FIX)
- * यो कोडले ३ वटा फरक-फरक मोडल र भर्सनहरू पालैपालो चेक गर्छ।
- * कुनै एउटा ४०४ भएमा अर्कोले काम गर्नेछ।
+ * यो कोडले ६ वटा फरक-फरक मोडल र भर्सनहरू पालैपालो चेक गर्छ।
+ * कुनै एउटा ४०४ वा एरर भएमा तुरुन्तै अर्कोमा स्विच हुनेछ।
  */
 
 const https = require('https');
@@ -23,32 +23,40 @@ async function run() {
 
     console.log(`🚀 मिति: ${dateStr} को लागि प्रक्रिया सुरु भयो...`);
 
-    // गुगलको सबैभन्दा स्थिर र नयाँ मोडलहरूको कम्बिनेसन
-    // मोडल नामहरूलाई सुधारेर 'models/' प्रिफिक्स स्पष्ट पारिएको छ
+    // गुगलका सबै चल्न सक्ने सम्भावित बाटोहरूको सुची
     const modelConfigs = [
-        { host: 'generativelanguage.googleapis.com', path: `/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}` },
-        { host: 'generativelanguage.googleapis.com', path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}` },
-        { host: 'generativelanguage.googleapis.com', path: `/v1/models/gemini-pro:generateContent?key=${apiKey}` }
+        { ver: 'v1beta', model: 'gemini-1.5-flash-latest' },
+        { ver: 'v1beta', model: 'gemini-1.5-flash' },
+        { ver: 'v1', model: 'gemini-1.5-flash' },
+        { ver: 'v1beta', model: 'gemini-pro' },
+        { ver: 'v1', model: 'gemini-pro' },
+        { ver: 'v1', model: 'gemini-1.0-pro' }
     ];
 
     let content = "";
     let success = false;
+    let errorLog = "";
 
     for (const config of modelConfigs) {
         try {
-            console.log(`📡 Trying AI API Path: ${config.path.split('?')[0]}...`);
-            content = await getAIResponse(config, dateStr);
+            const apiPath = `/${config.ver}/models/${config.model}:generateContent?key=${apiKey}`;
+            console.log(`📡 Checking: ${config.model} (${config.ver})...`);
+            
+            content = await getAIResponse(apiPath, dateStr);
+            
             if (content) {
+                console.log(`✅ Success with ${config.model}!`);
                 success = true;
                 break;
             }
         } catch (err) {
-            console.error(`⚠️ Attempt failed for this model. Error: ${err.message}`);
+            errorLog += `[${config.model}]: ${err.message} | `;
+            console.log(`⚠️ ${config.model} failed, skipping...`);
         }
     }
 
     if (!success || !content) {
-        console.error("❌ सबै एआई मोडलहरू र भर्सनहरू असफल भए।");
+        console.error("❌ सबै प्रयासहरू असफल भए। लगहरू:", errorLog);
         process.exit(1);
     }
 
@@ -66,22 +74,22 @@ async function run() {
     try {
         console.log("⏳ WordPress मा पठाउँदै...");
         await postToWP(wpHost, wpUser, wpPass, `दैनिक राशिफल - ${dateStr}`, htmlBody);
-        console.log("✅ सफलता! राशिफल प्रकाशित भयो।");
+        console.log("🎉 बधाई छ! सफलता पूर्वक प्रकाशित भयो।");
     } catch (wpErr) {
         console.error("❌ WP Post Error:", wpErr.message);
         process.exit(1);
     }
 }
 
-function getAIResponse(config, date) {
+function getAIResponse(path, date) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({
             contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format each zodiac sign name in bold like **Mesh:**` }] }]
         });
 
         const req = https.request({
-            hostname: config.host,
-            path: config.path,
+            hostname: 'generativelanguage.googleapis.com',
+            path: path,
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         }, (res) => {
@@ -94,7 +102,7 @@ function getAIResponse(config, date) {
                     if (json.candidates && json.candidates[0].content) {
                         resolve(json.candidates[0].content.parts[0].text);
                     } else {
-                        reject(new Error("Empty response from AI"));
+                        reject(new Error("Empty response"));
                     }
                 } catch (e) { reject(e); }
             });
