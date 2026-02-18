@@ -1,7 +1,7 @@
 /**
  * 🕉️ TKG RASHIFALA - FINAL AUTO-RECOVERY SCRIPT
  * UI: Enhanced Premium Design for WordPress (Zodiac Cards Style)
- * Logic: Auto-calculates Date for Automation (No manual date entry needed)
+ * Logic: Auto-calculates Date with Optional Offset
  */
 
 const https = require('https');
@@ -14,16 +14,19 @@ async function run() {
 
     if (!apiKey) { console.error("❌ API Key Missing in GitHub Secrets!"); process.exit(1); }
 
-    // --- अटोमेटिक मिति निकाल्ने लजिक ---
-    const today = new Date();
+    // --- मिति व्यवस्थापन ---
+    // यदि भोलिको राशिफल निकाल्नु छ भने daysOffset = 1 राख्नुहोस्
+    const daysOffset = 0; 
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + daysOffset);
     
-    // अंग्रेजी मिति (Current System Date)
+    // अंग्रेजी मिति ढाँचा
     const optionsEn = { year: 'numeric', month: 'long', day: 'numeric' };
-    const englishDateStr = today.toLocaleDateString('en-US', optionsEn);
+    const englishDateStr = targetDate.toLocaleDateString('en-US', optionsEn);
     
-    // नेपाली मिति अटोमेटिक (यसले सिस्टमको आधारमा सही मिति निकाल्छ)
+    // नेपाली मिति ढाँचा
     const optionsNe = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
-    let nepaliDateStr = today.toLocaleDateString('ne-NP', optionsNe);
+    let nepaliDateStr = targetDate.toLocaleDateString('ne-NP', optionsNe);
     
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
 
