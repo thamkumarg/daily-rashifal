@@ -1,6 +1,6 @@
 /**
- * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION (FIXED 404)
- * This version is specifically configured for Google AI Studio API Keys.
+ * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION (FIXED 404 & MODEL NOT FOUND)
+ * This version uses a smart fallback mechanism to handle Google API Model Name changes.
  */
 
 const https = require('https');
@@ -15,7 +15,6 @@ async function run() {
     if (!wpPass) { console.error("❌ WP_PASS missing in GitHub Secrets!"); process.exit(1); }
 
     // मिति सेटिङ (फागुन ७, २०८१ - आजको लागि)
-    // यदि भोलिको लागि पब्लिश गर्ने हो भने यहाँ ८ गते बनाउनुहोला
     const nepaliDateStr = "७ फागुन २०८१, बुधबार"; 
     const fullDateDisplay = `${nepaliDateStr} (February 18, 2026)`;
 
@@ -49,21 +48,39 @@ async function run() {
 }
 
 async function getAIContent(key, date) {
-    // Google AI Studio को लागि सही एन्डपोइन्ट (Gemini 1.5 Flash)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
-    
-    console.log(`🤖 Requesting Gemini AI...`);
+    // विभिन्न मोडेल नामहरू प्रयास गर्ने लिस्ट (४०४ एररबाट बच्न)
+    const models = [
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-pro"
+    ];
+
+    const prompt = `Write a very detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
+    Format each sign with an icon like ♈ **मेष:**. 
+    Write 3-4 sentences for each sign. 
+    At the end of each sign, include 'शुभ अंक' and 'शुभ रङ'. 
+    Make the tone positive and astrological.`;
+
+    for (const model of models) {
+        try {
+            console.log(`🤖 Attempting API with model: ${model}...`);
+            const result = await makeApiCall(key, model, prompt);
+            if (result) return result;
+        } catch (e) {
+            console.warn(`⚠️ Attempt failed for ${model}: ${e.message}`);
+            // अर्को मोडेल प्रयास गर्न जारी राख्ने
+        }
+    }
+
+    throw new Error("All AI model endpoints failed. Please check your API key and permissions.");
+}
+
+function makeApiCall(key, model, prompt) {
+    // v1beta एन्डपोइन्टमा पूर्ण मोडेल पथ प्रयोग गरिएको छ
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     
     const payload = {
-        contents: [{ 
-            parts: [{ 
-                text: `Write a very detailed daily horoscope for 12 zodiac signs in Nepali for ${date}. 
-                Format each sign with an icon like ♈ **मेष:**. 
-                Write 3-4 sentences for each sign. 
-                At the end of each sign, include 'शुभ अंक' and 'शुभ रङ'. 
-                Make the tone positive and astrological.` 
-            }] 
-        }]
+        contents: [{ parts: [{ text: prompt }] }]
     };
 
     return new Promise((resolve, reject) => {
@@ -78,9 +95,9 @@ async function getAIContent(key, date) {
                     const json = JSON.parse(data);
                     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (text) resolve(text);
-                    else reject(new Error("AI returned empty response"));
+                    else reject(new Error("Empty text in response"));
                 } else {
-                    reject(new Error(`Google API Error ${res.statusCode}: ${data}`));
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
                 }
             });
         });
