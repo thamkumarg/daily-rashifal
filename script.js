@@ -1,6 +1,7 @@
 /**
  * 🕉️ TKG RASHIFALA - FINAL AUTO-RECOVERY SCRIPT
  * This script auto-detects available models to fix 404 errors.
+ * Fix: Corrected Nepali Year to 2082 (for Feb 2026)
  */
 
 const https = require('https');
@@ -13,8 +14,8 @@ async function run() {
 
     if (!apiKey) { console.error("❌ API Key Missing in GitHub Secrets!"); process.exit(1); }
 
-    // Today's Date Configuration
-    const nepaliDateStr = "७ फागुन २०८१, बुधबार"; 
+    // Today's Date Configuration - Updated to 2082 BS
+    const nepaliDateStr = "७ फागुन २०८२, बुधबार"; 
     const fullDateDisplay = `${nepaliDateStr} (February 18, 2026)`;
 
     console.log(`🚀 Task Started for: ${fullDateDisplay}`);
@@ -49,8 +50,9 @@ async function run() {
 
         // STEP 3: Post to WordPress
         console.log("📤 Sending to WordPress...");
-        await postToWP(wpHost, wpUser, wpPass, `आजको राशिफल - ${nepaliDateStr}`, htmlBody);
-        console.log("🎊 SUCCESS: Post published on TKG website!");
+        const postLink = await postToWP(wpHost, wpUser, wpPass, `आजको राशिफल - ${nepaliDateStr}`, htmlBody);
+        console.log(`🎊 SUCCESS: Post published successfully!`);
+        console.log(`🔗 Live Link: ${postLink}`);
 
     } catch (error) {
         console.error("❌ FATAL ERROR:", error.message);
@@ -131,8 +133,16 @@ function postToWP(host, user, pass, title, content) {
                 'Content-Length': Buffer.byteLength(body)
             }
         }, (res) => {
-            if (res.statusCode === 201) resolve();
-            else reject(new Error(`WordPress Rejected Post (Status: ${res.statusCode})`));
+            let responseData = '';
+            res.on('data', (chunk) => { responseData += chunk; });
+            res.on('end', () => {
+                if (res.statusCode === 201) {
+                    const json = JSON.parse(responseData);
+                    resolve(json.link); // Return the URL of the published post
+                } else {
+                    reject(new Error(`WordPress Rejected Post (Status: ${res.statusCode}) - ${responseData}`));
+                }
+            });
         });
         req.on('error', reject);
         req.write(body);
