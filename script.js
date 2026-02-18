@@ -1,7 +1,7 @@
 /**
  * 🕉️ TKG RASHIFALA PUBLISHER - ULTIMATE ROBUST VERSION (FIXED 404)
- * This version uses the latest model naming conventions to fix the 404 NOT_FOUND issue
- * seen in GitHub Actions logs.
+ * This version uses improved model selection and better error reporting
+ * to solve the 404 NOT_FOUND issue seen in GitHub Actions.
  */
 
 const https = require('https');
@@ -19,8 +19,8 @@ async function run() {
     const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
     const npTime = new Date(utcTime + (5.75 * 60 * 60 * 1000));
     
-    // मिति: ६ फागुन २०८२
-    const nepaliDateStr = "६ फागुन २०८२, मंगलबार"; 
+    // मिति: ७ फागुन २०८२ (Update this if needed for correct Nepali date logic)
+    const nepaliDateStr = "७ फागुन २०८२, बुधबार"; 
     const englishDateStr = npTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const fullDateDisplay = `${nepaliDateStr} (${englishDateStr})`;
 
@@ -56,12 +56,12 @@ async function run() {
 async function getAIContentWithFallback(key, date) {
     /**
      * GitHub Actions मा ४०४ एरर आउनुको मुख्य कारण मोडलको नाम नमिल्नु हो।
-     * यहाँ हामी 'latest' र विशिष्ट भर्सनहरू प्रयोग गर्छौँ।
+     * हामी यहाँ gemini-2.0-flash-exp (नयाँ) र अन्य विकल्पहरू प्रयास गर्छौँ।
      */
     const configurations = [
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` },
-        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}` }
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${key}` },
+        { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}` },
+        { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}` }
     ];
 
     let lastError = "";
@@ -69,9 +69,9 @@ async function getAIContentWithFallback(key, date) {
     for (const config of configurations) {
         const modelName = config.url.split('/models/')[1].split(':')[0];
         try {
-            console.log(`🤖 Trying Model: ${modelName}...`);
+            console.log(`🤖 Requesting Model: ${modelName}...`);
             const result = await makeRequest(config.url, {
-                contents: [{ parts: [{ text: `Write a detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Start each sign with its emoji and bold name, e.g., ♈ **मेष:**. Include positive guidance for each.` }] }],
+                contents: [{ parts: [{ text: `Write a very detailed daily horoscope for all 12 zodiac signs in Nepali for ${date}. Format with bold names and icons like ♈ **मेष:**. Include lucky numbers and colors for each sign.` }] }],
                 safetySettings: [
                     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
                     { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -81,17 +81,22 @@ async function getAIContentWithFallback(key, date) {
             });
             
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text && text.length > 500) {
+            if (text && text.length > 400) {
                 console.log(`✨ Success with ${modelName}!`);
                 return text;
             }
-            console.warn(`⚠️ ${modelName} returned insufficient content.`);
+            console.warn(`⚠️ ${modelName} provided empty or short response.`);
         } catch (e) {
             lastError = e.message;
-            console.warn(`❌ ${modelName} failed: ${e.message.substring(0, 100)}`);
+            console.warn(`❌ ${modelName} failed: ${e.message.substring(0, 150)}`);
         }
     }
-    throw new Error(`All AI models failed. Last Error: ${lastError}. Please check if your API Key is restricted to certain regions.`);
+    
+    throw new Error(`CRITICAL: All AI endpoints returned 404 or errors. Please:
+    1. Check if 'Generative Language API' is enabled in Google Cloud Console.
+    2. Try creating a NEW API Key.
+    3. Ensure your API Key has no IP/Region restrictions.
+    Last error recorded: ${lastError}`);
 }
 
 function makeRequest(apiUrl, payload) {
@@ -99,15 +104,15 @@ function makeRequest(apiUrl, payload) {
         const req = https.request(apiUrl, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
-            timeout: 30000 // 30 seconds timeout
+            timeout: 45000 
         }, (res) => {
             let data = '';
             res.on('data', d => data += d);
             res.on('end', () => {
                 if (res.statusCode === 200) {
-                    try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("Failed to parse JSON response")); }
+                    try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("JSON Parse Error")); }
                 } else {
-                    reject(new Error(`Status ${res.statusCode}: ${data}`));
+                    reject(new Error(`HTTP ${res.statusCode}: ${data}`));
                 }
             });
         });
