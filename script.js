@@ -1,125 +1,108 @@
-/**
- * 🕉️ TKG RASHIFALA - DATE FIXED VERSION
- * Corrected: Feb 19, 2026 = Phalgun 7, 2082
- */
+const axios = require('axios');
 
-const https = require('https');
+// १. सेटअप र कन्फिगरेसन
+const API_KEY = process.env.GEMINI_API_KEY;
+const WP_URL = "https://tkg.com.np/wp-json/wp/v2/posts";
+const WP_USER = "admin"; // तपाईँको युजरनेम
+const WP_PASS = process.env.WP_PASS;
 
-async function run() {
-    const apiKey = (process.env.GEMINI_API_KEY || "").trim();
-    const wpPass = (process.env.WP_PASS || "").trim();
-    const wpUser = (process.env.WP_USER || "trikal").trim(); 
-    const wpUrl = "https://tkg.com.np";
+const auth = Buffer.from(`${WP_USER}:${WP_PASS}`).toString('base64');
 
-    if (!apiKey || !wpPass) {
-        console.error("❌ Secrets Missing!");
-        process.exit(1);
-    }
-
-    // --- मिति मिलाउने सही तरिका (Correct Date Logic) ---
-    const today = new Date(); 
-    const nepaliDays = ['आइतबार', 'सोमबार', 'मंगलबार', 'बुधबार', 'बिहीबार', 'शुक्रबार', 'शनिबार'];
-    const dayName = nepaliDays[today.getDay()];
-
-    // सन् २०२६ फेब्रुअरी १३ मा फागुन १ गते पर्छ
-    // त्यसैले फेब्रुअरी १९ भनेको (१९ - १३ + १) = ७ गते हो।
-    const phalgunFirst = new Date("2026-02-13");
-    const diffTime = today - phalgunFirst;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+// २. नेपाली मिति फङ्सन (आजको ठ्याक्कै मिति निकाल्न)
+function getNepaliDate() {
+    const today = new Date();
+    // सर्भरको समय फरक हुन सक्ने हुनाले नेपाल टाइमसेट
+    const options = { timeZone: 'Asia/Kathmandu', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+    const nepaliDateStr = today.toLocaleDateString('ne-NP', options);
     
-    const nDay = 1 + diffDays; 
-    const fullDateDisplay = `${dayName}, फागुन ${nDay}, २०८२`;
+    // अङ्ग्रेजी मिति पनि (Title को लागि)
+    const englishOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    const englishDateStr = today.toLocaleDateString('en-US', englishOptions).toUpperCase();
 
-    console.log("Generating for: " + fullDateDisplay);
+    return { nepali: nepaliDateStr, english: englishDateStr };
+}
+
+async function generateRashifal() {
+    const dateInfo = getNepaliDate();
+    console.log(`Generating for: ${dateInfo.nepali}`);
+
+    const prompt = `आज ${dateInfo.nepali} को लागि दैनिक राशिफल लेख्नुहोस्। 
+    - प्रत्येक राशिको लागि ४-५ लाइनको सकारात्मक र उपयोगी विवरण दिनुहोस्।
+    - विवरणको अन्त्यमा 'शुभ रङ्ग' र 'शुभ अङ्क' पनि लेख्नुहोस्।
+    - भाषा शुद्ध नेपाली हुनुपर्छ।`;
 
     try {
-        const rawContent = await generateAIContent(apiKey, fullDateDisplay);
-        const cleanedContent = rawContent.replace(/नमस्ते|आजको पञ्चाङ्ग|यो राशिफल|नोट:।/g, "").trim();
+        const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`,
+            {
+                contents: [{ parts: [{ text: prompt }] }]
+            }
+        );
 
-        const htmlBody = `
-<div style="font-family: 'Mukta', sans-serif; background: #fdfdfd; max-width: 800px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-    
-    <div style="background: #8b0000; padding: 30px 20px; text-align: center; color: #fff; border-bottom: 4px solid #ccaa2b;">
-        <h1 style="margin: 0; font-size: 36px; font-weight: 800; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">
-            आजको राशिफल
-        </h1>
-        <p style="margin: 10px 0 0 0; font-size: 20px; color: #f1f1f1;">${fullDateDisplay}</p>
-    </div>
-
-    <div style="padding: 25px;">
-        <div class="rashifal-content">
-            ${formatRashifal(cleanedContent)}
-        </div>
-    </div>
-
-    <div style="background: #fffaf0; padding: 25px; text-align: center; border-top: 1px solid #eee;">
-        <p style="font-weight: 800; color: #8b0000; margin: 0; font-size: 22px;">त्रिकाल ज्ञान मार्ग – आध्यात्मिक मार्गदर्शन</p>
-        <p style="color: #777; font-size: 15px; margin-top: 5px;">जय सन्तोषी माता!</p>
-    </div>
-</div>`;
-
-        const postData = {
-            title: `आजको राशिफल: ${fullDateDisplay}`,
-            content: htmlBody,
-            status: 'publish',
-            featured_media: 526,
-            categories: [5]
-        };
-
-        const result = await publishToWP(wpUrl, wpUser, wpPass, postData);
-        console.log("✅ Success! Live at: " + result.link);
-        
-    } catch (err) {
-        console.error("❌ Error:", err.message);
+        const rawText = response.data.candidates[0].content.parts[0].text;
+        return formatToHTML(rawText, dateInfo);
+    } catch (error) {
+        console.error("Gemini API Error:", error.message);
     }
 }
 
-function formatRashifal(text) {
-    const zodiacs = ['मेष','वृष','मिथुन','कर्कट','सिंह','कन्या','तुला','वृश्चिक','धनु','मकर','कुम्भ','मीन'];
-    return text.split('\n').map(line => {
-        const trimmed = line.trim();
-        if(!trimmed) return "";
-        
-        if(zodiacs.some(z => trimmed.includes(z))) {
-            return `<div style="background: #8b0000; color: #fff; padding: 12px 20px; border-radius: 8px 8px 0 0; margin-top: 30px; font-size: 22px; font-weight: 700; border-left: 8px solid #ccaa2b;">${trimmed.replace(/\*/g, '')}</div>`;
-        }
-        return `<div style="background: #fff; padding: 20px; border: 1px solid #eee; border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 10px; line-height: 1.8; color: #333; font-size: 17px; text-align: justify;">${trimmed.replace(/\*/g, '')}</div>`;
-    }).join('');
+function formatToHTML(text, dateInfo) {
+    // राशिलाई सुन्दर बक्समा सजाउने
+    const formattedText = text
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .split('\n\n').map(para => {
+            if (para.includes("मेष") || para.includes("वृष") || para.includes("मिथुन") || para.includes("कर्कट") || para.includes("सिंह") || para.includes("कन्या") || para.includes("तुला") || para.includes("वृश्चिक") || para.includes("धनु") || para.includes("मकर") || para.includes("कुम्भ") || para.includes("मीन")) {
+                return `
+                <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff; border-left: 5px solid #a00000;">
+                    <p style="font-size: 1.1em; line-height: 1.8; color: #333;">${para}</p>
+                </div>`;
+            }
+            return `<p style="font-size: 1.1em; line-height: 1.8;">${para}</p>`;
+        }).join('');
+
+    return `
+    <div style="font-family: 'Kalimati', 'Arial', sans-serif; max-width: 800px; margin: auto; background-color: #f9f9f9; padding: 10px;">
+        <!-- हेडर -->
+        <div style="background: linear-gradient(135deg, #a00000 0%, #d40000 100%); color: white; padding: 40px 20px; text-align: center; border-radius: 10px 10px 0 0; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <div style="font-size: 40px; margin-bottom: 10px;">🕉️</div>
+            <h1 style="margin: 0; font-size: 32px; letter-spacing: 1px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); color: white !important;">आजको राशिफल</h1>
+            <p style="font-size: 18px; opacity: 0.9; margin-top: 10px; color: white !important;">${dateInfo.nepali}</p>
+        </div>
+
+        <!-- मुख्य सामग्री -->
+        <div style="padding: 10px;">
+            <p style="text-align: center; font-style: italic; color: #666; margin-bottom: 30px;">
+                बिगतको कर्म र वर्तमानको ग्रहगोचरका आधारमा तयार पारिएको आजको राशिफल:
+            </p>
+            ${formattedText}
+        </div>
+
+        <!-- फुटर -->
+        <div style="text-align: center; padding: 20px; border-top: 1px solid #ddd; margin-top: 30px; color: #888; font-size: 14px;">
+            <p>© त्रिकाल ज्ञान मार्ग - आध्यात्मिक मार्गदर्शन</p>
+        </div>
+    </div>`;
 }
 
-async function publishToWP(url, user, pass, postData) {
-    const endpoint = `${url}/wp-json/wp/v2/posts`;
-    const auth = Buffer.from(`${user}:${pass}`).toString('base64');
-    return new Promise((resolve, reject) => {
-        const options = { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` } };
-        const req = https.request(endpoint, options, (res) => {
-            let data = '';
-            res.on('data', d => data += d);
-            res.on('end', () => res.statusCode === 201 ? resolve(JSON.parse(data)) : reject(new Error(`WP: ${res.statusCode}`)));
-        });
-        req.on('error', reject); req.write(JSON.stringify(postData)); req.end();
-    });
-}
+async function postToWordPress() {
+    const dateInfo = getNepaliDate();
+    const content = await generateRashifal();
 
-async function generateAIContent(key, date) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${key}`;
-    const payload = {
-        contents: [{ parts: [{ text: `आजको मिति ${date} को लागि १२ राशिको विस्तृत र सकारात्मक राशिफल लेख्नुहोस्। मेषबाट सुरु गर्नुहोला।` }] }],
-        systemInstruction: { parts: [{ text: "You are a professional Vedic Astrologer for TKG (Trikal Knowledge Gateway). Use respectful and pure Nepali language." }] }
+    const postData = {
+        title: `आजको राशिफल: ${dateInfo.nepali}`, // शीर्षकमा नेपाली मिति राखेको
+        content: content,
+        status: 'publish',
+        categories: [1] // तपाईँको राशिफल क्याटेगोरी ID चेक गर्नुहोला
     };
-    return new Promise((resolve, reject) => {
-        const req = https.request(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
-            let data = '';
-            res.on('data', d => data += d);
-            res.on('end', () => {
-                try {
-                    const json = JSON.parse(data);
-                    resolve(json.candidates[0].content.parts[0].text);
-                } catch(e) { reject(new Error("AI Parsing Error")); }
-            });
+
+    try {
+        const response = await axios.post(WP_URL, postData, {
+            headers: { 'Authorization': `Basic ${auth}` }
         });
-        req.on('error', reject); req.write(JSON.stringify(payload)); req.end();
-    });
+        console.log("Post Published Successfully! URL:", response.data.link);
+    } catch (error) {
+        console.error("WordPress Error:", error.response ? error.response.data : error.message);
+    }
 }
 
-run();
+postToWordPress();
